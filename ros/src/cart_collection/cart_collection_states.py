@@ -136,18 +136,37 @@ class GoToPreDockSetpoint(smach.State):
                              input_keys=['pre_dock_setpoint'])
         self.nav_goal_pub = rospy.Publisher('/route_navigation/goal', maneuver_navigation.msg.Goal, queue_size = 1)
         self.nav_feedback_sub = rospy.Subscriber('/route_navigation/feedback', maneuver_navigation.msg.Feedback, self.feedback_callback)
+        self.robot_pose_sub = rospy.Subscriber('/amcl_pose', geometry_msgs.msg.PoseWithCovarianceStamped, self.ropbot_pose_callback)
         self.timeout = rospy.Duration.from_sec(timeout)
         self.feedback = None
+        self.robot_pose = None
 
     def execute(self, userdata):
 
-	nav_goal = maneuver_navigation.msg.Goal()
-	nav_goal.conf.precise_goal = True
-	nav_goal.conf.use_line_planner = True
-	nav_goal.conf.append_new_maneuver = False
-	#userdata.pre_dock_setpoint
+        # Get ropot pose
+        self.robot_pose = None
+        start_time = rospy.Time.now()
+        while rospy.Time.now() - start_time <= self.timeout:
+            if self.robot_pose == None:
+                rospy.sleep(0.1)
+            else:
+                break
+
+        if self.robot_pose == None:
+            rospy.logerr("Preconditon for GoToPreDockSetpoint not met: Robot pose not available. Aborting.")
+            return 'timeout'
+
+        # Send goal
+        nav_goal = maneuver_navigation.msg.Goal()
+        nav_goal.conf.precise_goal = True
+        nav_goal.conf.use_line_planner = True
+        nav_goal.conf.append_new_maneuver = False
+        nav_goal.start = self.robot_pose
+        nav_goal.goal = userdata.pre_dock_setpoint
         self.nav_goal_pub.publish(nav_goal)
 
+        # Wait for result
+        self.feedback = None
         start_time = rospy.Time.now()
         while rospy.Time.now() - start_time <= self.timeout:
             if self.feedback != None:
@@ -156,12 +175,18 @@ class GoToPreDockSetpoint(smach.State):
                 if self.feedback.status == maneuver_navigation.msg.Feedback.FAILURE_OBSTACLES:
                     return 'setpoint_unreachable'
             else:
-                rospy.sleep(0.1)        
+                rospy.sleep(0.1)
 
         return 'timeout'
 
     def feedback_callback(self, msg):
         self.feedback = msg
+
+    def ropbot_pose_callback(self, msg):
+        if(self.robot_pose == None):
+            self.robot_pose = geometry_msgs.msg.PosStamped()
+        self.robot_pose.header = msg.header
+        self.robot_pose.pose = msg.pose.pose
 
 
 
