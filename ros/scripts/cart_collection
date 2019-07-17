@@ -4,23 +4,24 @@ import rospy
 
 import smach
 import smach_ros
+from cart_collection.cart_collection_states import GetCartPose, LookForCart, GetSetpointInPreDockArea, GoToPreDockSetpoint, AlignAndApproachCart, CoupleToCart, GetSetpointInPostDockArea, GoToPostDockSetpoint
 
 def main():
     rospy.init_node('cart_collection')
     SM = smach.StateMachine(outcomes=['done', 'failed'])
-    SM.userdata.docking_area = None
+    SM.userdata.docking_area = '61'
     SM.userdata.cart_pose = None
     SM.userdata.pre_dock_setpoint = None
     SM.userdata.post_dock_setpoint  = None
 
     with SM:
         smach.StateMachine.add('GET_CART_POSE', GetCartPose(),
-            transitions={'cart_found': 'GET_PLAN_TO_PRE_DOCK_AREA',
+            transitions={'cart_found': 'GET_SETPOINT_IN_PRE_DOCK_AREA',
                          'cart_not_found': 'LOOK_FOR_CART',
                          'timeout': 'failed'})
 
         smach.StateMachine.add('LOOK_FOR_CART', LookForCart(),
-            transitions={'cart_found': 'GET_PLAN_TO_PRE_DOCK_AREA',
+            transitions={'cart_found': 'GET_SETPOINT_IN_PRE_DOCK_AREA',
                          'cart_not_found': 'failed',
                          'timeout': 'failed'})
 
@@ -51,6 +52,9 @@ def main():
             transitions={'reached_setpoint': 'done',
                          'setpoint_unreachable': 'done',
                          'timeout': 'done'})
+    result = SM.execute()
+    while (result is None):
+        rospy.spin()
 
 if __name__ == '__main__':
     main()

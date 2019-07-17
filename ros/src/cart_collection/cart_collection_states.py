@@ -2,6 +2,7 @@ import rospy
 import smach
 import actionlib
 import ropod_ros_msgs.msg
+import geometry_msgs.msg
 
 
 class GetCartPose(smach.State):
@@ -13,6 +14,7 @@ class GetCartPose(smach.State):
                              input_keys=['docking_area'],
                              output_keys=['cart_pose'])
         self.get_objects_client = actionlib.SimpleActionClient('/get_objects', ropod_ros_msgs.msg.GetObjectsAction)
+        self.cart_pose_pub = rospy.Publisher('/cart_collection/selected_cart_pose', geometry_msgs.msg.PoseStamped, 1)
         self.timeout = timeout
 
     def execute(self, userdata):
@@ -31,7 +33,10 @@ class GetCartPose(smach.State):
         if (len(res.objects) == 0):
             return 'cart_not_found'
 
-        print("# of found objects = " len(res.objects))    
+        print("# of found objects = " + str(len(res.objects))) 
+        res.objects[0].pose.header.frame_id = 'map'
+        res.objects[0].pose.header.stamp = rospy.Time.now()
+        self.cart_pose_pub.publish(res.objects[0].pose)
         userdata.cart_pose = res.objects[0].pose # fixme
         return 'cart_found'
 
@@ -120,6 +125,3 @@ class GoToPostDockSetpoint(smach.State):
 
     def execute(self, userdata):
         return 'setpoint_unreachable'
-
-
-        '
