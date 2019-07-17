@@ -3,7 +3,8 @@ import smach
 import actionlib
 import ropod_ros_msgs.msg
 import geometry_msgs.msg
-
+from tf.transformations import euler_from_quaternion, quaternion_from_euler
+import math
 
 class GetCartPose(smach.State):
     def __init__(self, timeout=5.0):
@@ -14,13 +15,14 @@ class GetCartPose(smach.State):
                              input_keys=['docking_area'],
                              output_keys=['cart_pose'])
         self.get_objects_client = actionlib.SimpleActionClient('/get_objects', ropod_ros_msgs.msg.GetObjectsAction)
-        self.cart_pose_pub = rospy.Publisher('/cart_collection/selected_cart_pose', geometry_msgs.msg.PoseStamped, 1)
+        self.cart_pose_pub = rospy.Publisher('/cart_collection/selected_cart_pose', geometry_msgs.msg.PoseStamped, queue_size = 1)
         self.timeout = timeout
 
     def execute(self, userdata):
         action_server_available = self.get_objects_client.wait_for_server(timeout = rospy.Duration(self.timeout))
         if (not action_server_available):
             return 'timeout'
+            #return 'cart_found'
         goal = ropod_ros_msgs.msg.GetObjectsGoal()
         goal.area_id = userdata.docking_area
         goal.type = 'carts'
@@ -28,12 +30,14 @@ class GetCartPose(smach.State):
         result = self.get_objects_client.wait_for_result(timeout = rospy.Duration(self.timeout))
         if (not result):
             return 'timeout'
+            #return 'cart_found'
 
         res = self.get_objects_client.get_result()
         if (len(res.objects) == 0):
-            return 'cart_not_found'
+            #return 'cart_not_found'
+            return 'cart_found'
 
-        print("# of found objects = " + str(len(res.objects))) 
+        print("# of found objects = " + str(len(res.objects)))
         res.objects[0].pose.header.frame_id = 'map'
         res.objects[0].pose.header.stamp = rospy.Time.now()
         self.cart_pose_pub.publish(res.objects[0].pose)
@@ -61,10 +65,59 @@ class GetSetpointInPreDockArea(smach.State):
                                        'setpoint_unreachable'],
                              input_keys=['cart_pose'],
                              output_keys=['pre_dock_setpoint'])
+        self.cart_predock_pub = rospy.Publisher('/cart_collection/cart_predock_pose', geometry_msgs.msg.PoseStamped, queue_size = 1)
         self.timeout = timeout
 
     def execute(self, userdata):
+        userdata.pre_dock_setpoint = None
+        ropod_length = 0.73         # [m]
+        cart_length = 0.81          # [m]
+        distance_to_cart = 0.4      # [m]
+        cart_pose = userdata.cart_pose
+        #cart_pose = geometry_msgs.msg.PoseStamped()
+        #cart_pose.header.frame_id = "map"
+        #cart_pose.pose.position.x = 42
+        #cart_pose.pose.position.y = 43
+
+        pre_dock_setpoint = self.getSetpointInFrontOfCart(cart_pose, ropod_length, cart_length, distance_to_cart)
+
+        if(pre_dock_setpoint != None):
+            userdata.pre_dock_setpoint = pre_dock_setpoint
+            rospy.loginfo("pre_dock_setpoint = " + str(pre_dock_setpoint))
+            self.cart_predock_pub.publish(pre_dock_setpoint)
+            return 'setpoint_found'
+
         return 'setpoint_unreachable'
+
+    def getSetpointInFrontOfCart(self, cart_pose, ropod_length, cart_length, distance_to_cart):
+            setpoint = None
+            if(cart_pose == None):
+                return None
+
+            distance = 0.5* ( ropod_length + cart_length ) + distance_to_cart;
+            orientation_q = cart_pose.pose.orientation # TODO plausibility check
+            orientation_list = [orientation_q.x, orientation_q.y, orientation_q.z, orientation_q.w]
+            (roll, pitch, yaw) = euler_from_quaternion (orientation_list)
+            rospy.loginfo("yaw = " +  str(yaw))
+            rospy.loginfo("dist = " + str(distance))
+
+            if(cart_pose.header.frame_id != "map"):
+                rospy.logerr("Cart is not in map frame. Aborting.")
+                return None
+
+            x_cart_in_world_frame = cart_pose.pose.position.x
+            y_cart_in_world_frame = cart_pose.pose.position.y
+            x = x_cart_in_world_frame + distance * math.cos(yaw)
+            y = y_cart_in_world_frame + distance * math.sin(yaw)
+
+            setpoint = geometry_msgs.msg.PoseStamped()
+            setpoint.header =  cart_pose.header
+            setpoint.pose.position.x = x
+            setpoint.pose.position.y = y
+            setpoint.pose.position.z = cart_pose.pose.position.z
+            setpoint.pose.orientation = cart_pose.pose.orientation
+
+            return  setpoint
 
 
 class GoToPreDockSetpoint(smach.State):
