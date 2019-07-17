@@ -19,10 +19,11 @@ class GetCartPose(smach.State):
         self.timeout = timeout
 
     def execute(self, userdata):
+        #return 'cart_found'
         action_server_available = self.get_objects_client.wait_for_server(timeout = rospy.Duration(self.timeout))
         if (not action_server_available):
-            return 'timeout'
-            #return 'cart_found'
+               return 'timeout'
+
         goal = ropod_ros_msgs.msg.GetObjectsGoal()
         goal.area_id = userdata.docking_area
         goal.type = 'carts'
@@ -30,12 +31,10 @@ class GetCartPose(smach.State):
         result = self.get_objects_client.wait_for_result(timeout = rospy.Duration(self.timeout))
         if (not result):
             return 'timeout'
-            #return 'cart_found'
 
         res = self.get_objects_client.get_result()
         if (len(res.objects) == 0):
             return 'cart_not_found'
-            #return 'cart_found'
 
         print("# of found objects = " + str(len(res.objects)))
         res.objects[0].pose.header.frame_id = 'map'
@@ -73,11 +72,17 @@ class GetSetpointInPreDockArea(smach.State):
         ropod_length = 0.73         # [m]
         cart_length = 0.81          # [m]
         distance_to_cart = 0.4      # [m]
-        cart_pose = userdata.cart_pose
+
         #cart_pose = geometry_msgs.msg.PoseStamped()
         #cart_pose.header.frame_id = "map"
         #cart_pose.pose.position.x = 42
         #cart_pose.pose.position.y = 43
+        #cart_pose.pose.orientation.w = 0.707
+        #cart_pose.pose.orientation.x = 0.0
+        #cart_pose.pose.orientation.y = 0.0
+        #cart_pose.pose.orientation.z = -0.707
+
+        cart_pose = userdata.cart_pose
 
         pre_dock_setpoint = self.getSetpointInFrontOfCart(cart_pose, ropod_length, cart_length, distance_to_cart)
 
@@ -92,6 +97,7 @@ class GetSetpointInPreDockArea(smach.State):
     def getSetpointInFrontOfCart(self, cart_pose, ropod_length, cart_length, distance_to_cart):
             setpoint = None
             if(cart_pose == None):
+                rospy.logerr("Preconditon for getSetpointInFrontOfCart not met: Cart not found. Aborting.")
                 return None
 
             distance = 0.5* ( ropod_length + cart_length ) + distance_to_cart;
@@ -102,7 +108,7 @@ class GetSetpointInPreDockArea(smach.State):
             rospy.loginfo("dist = " + str(distance))
 
             if(cart_pose.header.frame_id != "map"):
-                rospy.logerr("Cart is not in map frame. Aborting.")
+                rospy.logerr("Preconditon for getSetpointInFrontOfCart not met: Cart is not in map frame. Aborting.")
                 return None
 
             x_cart_in_world_frame = cart_pose.pose.position.x
