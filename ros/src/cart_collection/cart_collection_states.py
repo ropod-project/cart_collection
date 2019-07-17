@@ -84,7 +84,7 @@ class GetSetpointInPreDockArea(smach.State):
 
         cart_pose = userdata.cart_pose
 
-        pre_dock_setpoint = self.getSetpointInFrontOfCart(cart_pose, ropod_length, cart_length, distance_to_cart)
+        pre_dock_setpoint = self.get_setpoint_in_front_of_cart(cart_pose, ropod_length, cart_length, distance_to_cart)
 
         if(pre_dock_setpoint != None):
             userdata.pre_dock_setpoint = pre_dock_setpoint
@@ -94,7 +94,7 @@ class GetSetpointInPreDockArea(smach.State):
 
         return 'setpoint_unreachable'
 
-    def getSetpointInFrontOfCart(self, cart_pose, ropod_length, cart_length, distance_to_cart):
+    def get_setpoint_in_front_of_cart(self, cart_pose, ropod_length, cart_length, distance_to_cart):
             setpoint = None
             if(cart_pose == None):
                 rospy.logerr("Preconditon for getSetpointInFrontOfCart not met: Cart not found. Aborting.")
@@ -127,16 +127,35 @@ class GetSetpointInPreDockArea(smach.State):
 
 
 class GoToPreDockSetpoint(smach.State):
-    def __init__(self, timeout=5.0):
+    def __init__(self, timeout=20.0):
         smach.State.__init__(self,
                              outcomes=['reached_setpoint',
                                        'setpoint_unreachable',
                                        'timeout'],
                              input_keys=['pre_dock_setpoint'])
-        self.timeout = timeout
+        self.nav_goal_pub = rospy.Publisher('/route_navigation/goal', maneuver_navigation.msg.Goal, queue_size = 1)
+        self.nav_feedback_sub = rospy.Subsriber('/route_navigation/feedback', maneuver_navigation.msg.Feedback, self.feedback_callback())
+        self.timeout = rospy.Duration.from_sec(timeout)
+        self.feedback = None
 
     def execute(self, userdata):
-        return 'setpoint_unreachable'
+
+        nav_goal_pub.publish(userdata.pre_dock_setpoint)
+
+        start_time = rospy.Time.now()
+        while rospy.Time.now() - start_time <= self.timeout:
+            if self.feedback != None
+                if self.feedback.status == maneuver_navigation.msg.Feedback.SUCCESS
+                    return 'reached_setpoint'
+                if self.feedback.status == maneuver_navigation.msg.Feedback.FAILURE_OBSTACLES
+                    return 'setpoint_unreachable'
+            else:
+                rospy.sleep(0.1)        
+
+        return 'timeout'
+
+    def feedback_callback(self, msg):
+        self.feedback = msg
 
 
 
