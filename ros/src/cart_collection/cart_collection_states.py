@@ -34,8 +34,8 @@ class GetCartPose(smach.State):
 
         res = self.get_objects_client.get_result()
         if (len(res.objects) == 0):
-            #return 'cart_not_found'
-            return 'cart_found'
+            return 'cart_not_found'
+            #return 'cart_found'
 
         print("# of found objects = " + str(len(res.objects)))
         res.objects[0].pose.header.frame_id = 'map'
