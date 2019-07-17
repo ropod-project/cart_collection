@@ -5,6 +5,7 @@ import ropod_ros_msgs.msg
 import geometry_msgs.msg
 from tf.transformations import euler_from_quaternion, quaternion_from_euler
 import math
+import maneuver_navigation.msg
 
 class GetCartPose(smach.State):
     def __init__(self, timeout=5.0):
@@ -134,20 +135,25 @@ class GoToPreDockSetpoint(smach.State):
                                        'timeout'],
                              input_keys=['pre_dock_setpoint'])
         self.nav_goal_pub = rospy.Publisher('/route_navigation/goal', maneuver_navigation.msg.Goal, queue_size = 1)
-        self.nav_feedback_sub = rospy.Subsriber('/route_navigation/feedback', maneuver_navigation.msg.Feedback, self.feedback_callback())
+        self.nav_feedback_sub = rospy.Subscriber('/route_navigation/feedback', maneuver_navigation.msg.Feedback, self.feedback_callback)
         self.timeout = rospy.Duration.from_sec(timeout)
         self.feedback = None
 
     def execute(self, userdata):
 
-        nav_goal_pub.publish(userdata.pre_dock_setpoint)
+	nav_goal = maneuver_navigation.msg.Goal()
+	nav_goal.conf.precise_goal = True
+	nav_goal.conf.use_line_planner = True
+	nav_goal.conf.append_new_maneuver = False
+	#userdata.pre_dock_setpoint
+        self.nav_goal_pub.publish(nav_goal)
 
         start_time = rospy.Time.now()
         while rospy.Time.now() - start_time <= self.timeout:
-            if self.feedback != None
-                if self.feedback.status == maneuver_navigation.msg.Feedback.SUCCESS
+            if self.feedback != None:
+                if self.feedback.status == maneuver_navigation.msg.Feedback.SUCCESS:
                     return 'reached_setpoint'
-                if self.feedback.status == maneuver_navigation.msg.Feedback.FAILURE_OBSTACLES
+                if self.feedback.status == maneuver_navigation.msg.Feedback.FAILURE_OBSTACLES:
                     return 'setpoint_unreachable'
             else:
                 rospy.sleep(0.1)        
