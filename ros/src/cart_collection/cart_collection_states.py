@@ -22,10 +22,6 @@ def get_setpoint_in_front_of_pose(pose, distance):
         rospy.logerr("Preconditon for get_setpoint_in_front_of_pose not met: Pose not found. Aborting.")
         return None
 
-    if(pose.header.frame_id != "map"):
-        rospy.logerr("Preconditon for get_setpoint_in_front_of_pose not met: Pose is not in map frame. Aborting.")
-        return None
-
     yaw = get_yaw_from_pose(pose)
 
     x_cart_in_world_frame = pose.pose.position.x
@@ -77,6 +73,11 @@ class GetCartPose(smach.State):
         res.objects[0].pose.header.stamp = rospy.Time.now()
         self.cart_pose_pub.publish(res.objects[0].pose)
         userdata.cart_pose = res.objects[0].pose # fixme
+
+        if(userdata.cart_pose.header.frame_id != "map"):
+            rospy.logerr("Preconditon for GetCartPose not met: Pose is not in map frame. Aborting.")
+            return 'cart_not_found'
+
         return 'cart_found'
 
 class LookForCart(smach.State):
