@@ -106,7 +106,7 @@ class GetSetpointInPreDockArea(smach.State):
         userdata.pre_dock_setpoint = None
         ropod_length = 0.73         # [m]
         cart_length = 0.81          # [m]
-        distance_to_cart = 0.4      # [m]
+        distance_to_cart = 1.2      # [m]
 
         #cart_pose = geometry_msgs.msg.PoseStamped()
         #cart_pose.header.frame_id = "map"
@@ -134,7 +134,7 @@ class GetSetpointInPreDockArea(smach.State):
 
 
 class GoToPreDockSetpoint(smach.State):
-    def __init__(self, timeout=20.0):
+    def __init__(self, timeout=60.0):
         smach.State.__init__(self,
                              outcomes=['reached_setpoint',
                                        'setpoint_unreachable',
@@ -205,7 +205,7 @@ class AlignAndApproachCart(smach.State):
         self.cart_pose_feedback_sub = rospy.Subscriber('/wm/docking_approach/cart_front', ropod_ros_msgs.msg.ObjectList, self.cart_front_pose_callback)
         self.cmd_vel_pub = rospy.Publisher('/ropod/cmd_vel', geometry_msgs.msg.Twist, queue_size = 1)
         self.cart_front_pose = None
-        self.timeout = timeout
+        self.timeout = rospy.Duration.from_sec(timeout)
         self.pose_reached =  False
 
     def execute(self, userdata):
@@ -287,7 +287,7 @@ class CoupleToCart(smach.State):
         self.docking_feedback = None
         self.coupling_attempts = 0
         self.max_coupling_attempts = 3
-        self.timeout = timeout
+        self.timeout = rospy.Duration.from_sec(timeout)
 
     def execute(self, userdata):
         self.docking_feedback = None
