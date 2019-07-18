@@ -197,7 +197,6 @@ class GoToPreDockSetpoint(smach.State):
         self.feedback = msg
 
     def ropbot_pose_callback(self, msg):
-        rospy.loginfo("Got pose.")
         if(self.robot_pose == None):
             self.robot_pose = geometry_msgs.msg.PoseStamped()
         self.robot_pose.header = msg.header
@@ -309,8 +308,8 @@ class CoupleToCart(smach.State):
 
         docking_msg = ropod_ros_msgs.msg.DockingCommand()
         docking_msg.docking_command = ropod_ros_msgs.msg.DockingCommand.DOCKING_COMMAND_DOCK
-        docking_cmd_pub.publish(docking_msg)
-        self.cupling_attempts = self.cupling_attempts + 1
+        self.docking_cmd_pub.publish(docking_msg)
+        self.coupling_attempts = self.coupling_attempts + 1
 
         start_time = rospy.Time.now()
         while rospy.Time.now() - start_time <= self.timeout:
@@ -326,8 +325,8 @@ class CoupleToCart(smach.State):
                     if self.coupling_attempts >= self.max_coupling_attempts:
                         return 'coupling_failed'
                     rospy.logwarn("Coupling attempt " + str(self.coupling_attempts) + " out of " + str(self.max_coupling_attempts) + " failed. Retrying.")
-                    docking_cmd_pub.publish(docking_msg)
-                    self.coupling_attempts = self.cupling_attempts + 1
+                    self.docking_cmd_pub.publish(docking_msg)
+                    self.coupling_attempts = self.coupling_attempts + 1
             else:
                 rospy.sleep(0.1)
 
@@ -343,7 +342,7 @@ class GetSetpointInPostDockArea(smach.State):
                              outcomes=['setpoint_found',
                                        'setpoint_unreachable'],
                              output_keys=['post_dock_setpoint'])
-        self.timeout = timeout
+        self.timeout = rospy.Duration.from_sec(timeout)
 
     def execute(self, userdata):
         return 'setpoint_unreachable'
@@ -355,7 +354,7 @@ class GoToPostDockSetpoint(smach.State):
                                        'setpoint_unreachable',
                                        'timeout'],
                              input_keys=['post_dock_setpoint'])
-        self.timeout = timeout
+        self.timeout = rospy.Duration.from_sec(timeout)
 
     def execute(self, userdata):
         return 'setpoint_unreachable'
