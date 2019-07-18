@@ -307,6 +307,7 @@ class CoupleToCart(smach.State):
         self.docking_feedback = None
         self.coupling_attempts = 0
 
+        docking_msg = ropod_ros_msgs.msg.DockingCommand()
         docking_msg.docking_command = ropod_ros_msgs.msg.DockingCommand.DOCKING_COMMAND_DOCK
         docking_cmd_pub.publish(docking_msg)
         self.cupling_attempts = self.cupling_attempts + 1
