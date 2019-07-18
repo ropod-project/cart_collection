@@ -188,6 +188,7 @@ class GoToPreDockSetpoint(smach.State):
         self.feedback = msg
 
     def ropbot_pose_callback(self, msg):
+        rospy.loginfo("Got pose.")
         if(self.robot_pose == None):
             self.robot_pose = geometry_msgs.msg.PoseStamped()
         self.robot_pose.header = msg.header
