@@ -7,6 +7,7 @@ import std_msgs.msg
 from tf.transformations import euler_from_quaternion, quaternion_from_euler
 import math
 import maneuver_navigation.msg
+import os
 
 def get_yaw_from_pose(pose):
         orientation_q = pose.pose.orientation
@@ -160,6 +161,15 @@ class GoToPreDockSetpoint(smach.State):
         if self.robot_pose == None:
             rospy.logerr("Precondition for GoToPreDockSetpoint not met: Robot pose not available. Aborting.")
             return 'timeout'
+
+        # reconfigure to fine grained navigaiton
+        #os.system("rosrun dynamic_reconfigure dynparam set /maneuver_navigation/TebLocalPlannerROS max_vel_x 0.3 &");
+        #os.system("rosrun dynamic_reconfigure dynparam set /maneuver_navigation/TebLocalPlannerROS max_vel_theta 0.8 &");
+                               
+        os.system("rosrun dynamic_reconfigure dynparam set /maneuver_navigation/TebLocalPlannerROS max_vel_y 0.5 &");
+        os.system("rosrun dynamic_reconfigure dynparam set /maneuver_navigation/TebLocalPlannerROS weight_kinematics_nh 0 &");
+        os.system("rosrun dynamic_reconfigure dynparam set /maneuver_navigation/TebLocalPlannerROS weight_kinematics_forward_drive 0 &");
+
 
         # Send goal
         nav_goal = maneuver_navigation.msg.Goal()
