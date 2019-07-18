@@ -217,7 +217,7 @@ class AlignAndApproachCart(smach.State):
         self.cart_front_pose = None
         self.timeout = rospy.Duration.from_sec(timeout)
         self.pose_reached =  False
-        self.offset_to_front = 0.45 # [m]
+        self.offset_to_front = 0.50 # [m]
 
     def execute(self, userdata):
         self.cart_front_pose = None
