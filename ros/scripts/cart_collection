@@ -9,7 +9,7 @@ from cart_collection.cart_collection_states import GetCartPose, LookForCart, Get
 def main():
     rospy.init_node('cart_collection')
     SM = smach.StateMachine(outcomes=['done', 'failed'])
-    SM.userdata.docking_area = '60' #61 = next to C025; 60 = next to C022
+    SM.userdata.docking_area = '61' #61 = next to C025; 60 = next to C022
     SM.userdata.cart_pose = None
     SM.userdata.pre_dock_setpoint = None
     SM.userdata.post_dock_setpoint  = None

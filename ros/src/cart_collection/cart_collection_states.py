@@ -3,6 +3,7 @@ import smach
 import actionlib
 import ropod_ros_msgs.msg
 import geometry_msgs.msg
+import std_msgs.msg
 from tf.transformations import euler_from_quaternion, quaternion_from_euler
 import math
 import maneuver_navigation.msg
@@ -188,7 +189,7 @@ class GoToPreDockSetpoint(smach.State):
 
     def ropbot_pose_callback(self, msg):
         if(self.robot_pose == None):
-            self.robot_pose = geometry_msgs.msg.PosStamped()
+            self.robot_pose = geometry_msgs.msg.PoseStamped()
         self.robot_pose.header = msg.header
         self.robot_pose.pose = msg.pose.pose
 
