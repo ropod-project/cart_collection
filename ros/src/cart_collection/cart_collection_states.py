@@ -68,15 +68,13 @@ class GetCartPose(smach.State):
         if (len(res.objects) == 0):
             return 'cart_not_found'
 
-        print("# of found objects = " + str(len(res.objects)))
-        res.objects[0].pose.header.frame_id = 'map'
-        res.objects[0].pose.header.stamp = rospy.Time.now()
-        self.cart_pose_pub.publish(res.objects[0].pose)
-        userdata.cart_pose = res.objects[0].pose # fixme
-
-        if(userdata.cart_pose.header.frame_id != "map"):
+        if(res.objects[0].pose.frame_id != "map"):
             rospy.logerr("Preconditon for GetCartPose not met: Pose is not in map frame. Aborting.")
             return 'cart_not_found'
+
+        print("# of found objects = " + str(len(res.objects)))
+        self.cart_pose_pub.publish(res.objects[0].pose)
+        userdata.cart_pose = res.objects[0].pose # fixme
 
         return 'cart_found'
 
