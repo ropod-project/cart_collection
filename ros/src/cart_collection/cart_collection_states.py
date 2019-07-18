@@ -195,7 +195,7 @@ class GoToPreDockSetpoint(smach.State):
 
 
 class AlignAndApproachCart(smach.State):
-    def __init__(self, timeout=5.0):
+    def __init__(self, timeout=15.0):
         smach.State.__init__(self,
                              outcomes=['approach_succeeded',
                                        'cart_not_found',
@@ -274,13 +274,14 @@ class AlignAndApproachCart(smach.State):
 
 
 class CoupleToCart(smach.State):
-    def __init__(self, timeout=5.0):
+    def __init__(self, timeout=10.0):
         smach.State.__init__(self,
                              outcomes=['coupling_succeeded',
                                        'coupling_failed',
                                        'cannot_switch_to_load_mode'])
         self.docking_cmd_pub = rospy.Publisher('/ropod/ropod_low_level_control/cmd_dock', ropod_ros_msgs.msg.DockingCommand, queue_size = 1)
         self.cart_pose_feedback_sub = rospy.Subscriber('/ropod/ropod_low_level_control/dockingFeedback', ropod_ros_msgs.msg.DockingFeedback, self.docking_feedback_callback)
+        self.nav_load_attached_pub = rospy.Publisher('/route_navigation/set_load_attached', std_msgs.msg.Bool, queue_size = 1)
         self.docking_feedback = None
         self.coupling_attempts = 0
         self.max_coupling_attempts = 3
@@ -299,6 +300,10 @@ class CoupleToCart(smach.State):
             if self.docking_feedback != None:
                 if self.docking_feedback.docking_status == ropod_ros_msgs.msg.DOCKING_FB_DOCKED:
                     #reconfigure ropod to go into "load mode"
+                    rospy.loginfo("Coupling succeeded. Switching navigation component into load mode.")
+                    attached_msg = std_msgs.msg.Bool()
+                    attached_msg.data = True
+                    self.nav_load_attached_pub.publish(attached_msg)
                     return 'coupling_succeeded'
                 if self.docking_feedback.docking_status == ropod_ros_msgs.msg.DOCKING_FB_REST:
                     if self.coupling_attempts >= self.max_coupling_attempts:
