@@ -314,14 +314,14 @@ class CoupleToCart(smach.State):
         start_time = rospy.Time.now()
         while rospy.Time.now() - start_time <= self.timeout:
             if self.docking_feedback != None:
-                if self.docking_feedback.docking_status == ropod_ros_msgs.msg.DOCKING_FB_DOCKED:
+                if self.docking_feedback.docking_status == ropod_ros_msgs.msg.DockingFeedback.DOCKING_FB_DOCKED:
                     #reconfigure ropod to go into "load mode"
                     rospy.loginfo("Coupling succeeded. Switching navigation component into load mode.")
                     attached_msg = std_msgs.msg.Bool()
                     attached_msg.data = True
                     self.nav_load_attached_pub.publish(attached_msg)
                     return 'coupling_succeeded'
-                if self.docking_feedback.docking_status == ropod_ros_msgs.msg.DOCKING_FB_REST:
+                if self.docking_feedback.docking_status == ropod_ros_msgs.msg.DockingFeedback.DOCKING_FB_REST:
                     if self.coupling_attempts >= self.max_coupling_attempts:
                         return 'coupling_failed'
                     rospy.logwarn("Coupling attempt " + str(self.coupling_attempts) + " out of " + str(self.max_coupling_attempts) + " failed. Retrying.")
