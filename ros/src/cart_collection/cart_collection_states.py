@@ -7,6 +7,34 @@ from tf.transformations import euler_from_quaternion, quaternion_from_euler
 import math
 import maneuver_navigation.msg
 
+def get_setpoint_in_front_of_pose(pose, distance):
+    setpoint = None
+    if(pose == None):
+        rospy.logerr("Preconditon for get_setpoint_in_front_of_pose not met: Pose not found. Aborting.")
+        return None
+
+    if(pose.header.frame_id != "map"):
+        rospy.logerr("Preconditon for get_setpoint_in_front_of_pose not met: Pose is not in map frame. Aborting.")
+        return None
+
+    orientation_q = pose.pose.orientation
+    orientation_list = [orientation_q.x, orientation_q.y, orientation_q.z, orientation_q.w]
+    (roll, pitch, yaw) = euler_from_quaternion (orientation_list)
+
+    x_cart_in_world_frame = pose.pose.position.x
+    y_cart_in_world_frame = pose.pose.position.y
+    x = x_cart_in_world_frame + distance * math.cos(yaw)
+    y = y_cart_in_world_frame + distance * math.sin(yaw)
+
+    setpoint = geometry_msgs.msg.PoseStamped()
+    setpoint.header =  pose.header
+    setpoint.pose.position.x = x
+    setpoint.pose.position.y = y
+    setpoint.pose.position.z = pose.pose.position.z
+    setpoint.pose.orientation = pose.pose.orientation
+
+    return  setpoint
+
 class GetCartPose(smach.State):
     def __init__(self, timeout=5.0):
         smach.State.__init__(self,
@@ -85,7 +113,8 @@ class GetSetpointInPreDockArea(smach.State):
 
         cart_pose = userdata.cart_pose
 
-        pre_dock_setpoint = self.get_setpoint_in_front_of_cart(cart_pose, ropod_length, cart_length, distance_to_cart)
+        distance = (ropod_length + cart_length)/2.0 + distance_to_cart; # NOTE: Both poses are in the center of ropod/cart
+        pre_dock_setpoint = get_setpoint_in_front_of_pose(cart_pose, distance_to_cart)
 
         if(pre_dock_setpoint != None):
             userdata.pre_dock_setpoint = pre_dock_setpoint
@@ -95,36 +124,7 @@ class GetSetpointInPreDockArea(smach.State):
 
         return 'setpoint_unreachable'
 
-    def get_setpoint_in_front_of_cart(self, cart_pose, ropod_length, cart_length, distance_to_cart):
-            setpoint = None
-            if(cart_pose == None):
-                rospy.logerr("Preconditon for getSetpointInFrontOfCart not met: Cart not found. Aborting.")
-                return None
 
-            distance = 0.5* ( ropod_length + cart_length ) + distance_to_cart;
-            orientation_q = cart_pose.pose.orientation # TODO plausibility check
-            orientation_list = [orientation_q.x, orientation_q.y, orientation_q.z, orientation_q.w]
-            (roll, pitch, yaw) = euler_from_quaternion (orientation_list)
-            rospy.loginfo("yaw = " +  str(yaw))
-            rospy.loginfo("dist = " + str(distance))
-
-            if(cart_pose.header.frame_id != "map"):
-                rospy.logerr("Preconditon for getSetpointInFrontOfCart not met: Cart is not in map frame. Aborting.")
-                return None
-
-            x_cart_in_world_frame = cart_pose.pose.position.x
-            y_cart_in_world_frame = cart_pose.pose.position.y
-            x = x_cart_in_world_frame + distance * math.cos(yaw)
-            y = y_cart_in_world_frame + distance * math.sin(yaw)
-
-            setpoint = geometry_msgs.msg.PoseStamped()
-            setpoint.header =  cart_pose.header
-            setpoint.pose.position.x = x
-            setpoint.pose.position.y = y
-            setpoint.pose.position.z = cart_pose.pose.position.z
-            setpoint.pose.orientation = cart_pose.pose.orientation
-
-            return  setpoint
 
 
 class GoToPreDockSetpoint(smach.State):
@@ -142,7 +142,6 @@ class GoToPreDockSetpoint(smach.State):
         self.robot_pose = None
 
     def execute(self, userdata):
-
         # Get ropot pose
         self.robot_pose = None
         start_time = rospy.Time.now()
