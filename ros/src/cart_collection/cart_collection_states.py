@@ -107,7 +107,7 @@ class GetSetpointInPreDockArea(smach.State):
         userdata.pre_dock_setpoint = None
         ropod_length = 0.73         # [m]
         cart_length = 0.81          # [m]
-        distance_to_cart = 1.2      # [m]
+        distance_to_cart = 1.5      # [m]
 
         #cart_pose = geometry_msgs.msg.PoseStamped()
         #cart_pose.header.frame_id = "map"
@@ -226,7 +226,7 @@ class AlignAndApproachCart(smach.State):
         while (rospy.Time.now() - start_time <= self.timeout) and not self.pose_reached:
             if self.cart_front_pose != None:
                 (vel, self.pose_reached) = self.calculate_final_approach_velocities(self.cart_front_pose)
-                cmd_vel_pub.publish(vel)
+                self.cmd_vel_pub.publish(vel)
             else:
                 rospy.logwarn("Precondition for AlignAndApproachCart not met: No cart_front_pose reveived so far. Retrying.")
 
@@ -279,9 +279,9 @@ class AlignAndApproachCart(smach.State):
                     x_vel = pose.pose.position.x / y_time;
                     vel.linear.x = math.copysign(x_vel, pose.pose.position.x);
 
-        if (math.abs(yaw) > 0.1):
+        if (abs(yaw) > 0.1):
             # magnitude of MAX_ROT_VEL_DOCKING, sign of yaw
-            vel.angular.z = maht.copysign(MAX_ROT_VEL_DOCKING, yaw);
+            vel.angular.z = math.copysign(MAX_ROT_VEL_DOCKING, yaw);
 
         return vel, False # Not yet done, thus False
 
