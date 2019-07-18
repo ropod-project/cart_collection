@@ -149,7 +149,7 @@ class GoToPreDockSetpoint(smach.State):
 
     def execute(self, userdata):
         # Get ropot pose
-        self.robot_pose = None
+        #self.robot_pose = None
         start_time = rospy.Time.now()
         while rospy.Time.now() - start_time <= self.timeout:
             if self.robot_pose == None:
