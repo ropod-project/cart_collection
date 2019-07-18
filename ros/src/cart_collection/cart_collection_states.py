@@ -279,10 +279,41 @@ class CoupleToCart(smach.State):
                              outcomes=['coupling_succeeded',
                                        'coupling_failed',
                                        'cannot_switch_to_load_mode'])
+        self.docking_cmd_pub = rospy.Publisher('/ropod/ropod_low_level_control/cmd_dock', ropod_ros_msgs.msg.DockingCommand, queue_size = 1)
+        self.cart_pose_feedback_sub = rospy.Subscriber('/ropod/ropod_low_level_control/dockingFeedback', ropod_ros_msgs.msg.DockingFeedback, self.docking_feedback_callback)
+        self.docking_feedback = None
+        self.coupling_attempts = 0
+        self.max_coupling_attempts = 3
         self.timeout = timeout
 
     def execute(self, userdata):
-        return 'cannot_switch_to_load_mode'
+        self.docking_feedback = None
+        self.coupling_attempts = 0
+
+        docking_msg.docking_command = ropod_ros_msgs.msg.DockingCommand.DOCKING_COMMAND_DOCK
+        docking_cmd_pub.publish(docking_msg)
+        self.cupling_attempts = self.cupling_attempts + 1
+
+        start_time = rospy.Time.now()
+        while rospy.Time.now() - start_time <= self.timeout:
+            if self.docking_feedback != None:
+                if self.docking_feedback.docking_status == ropod_ros_msgs.msg.DOCKING_FB_DOCKED:
+                    #reconfigure ropod to go into "load mode"
+                    return 'coupling_succeeded'
+                if self.docking_feedback.docking_status == ropod_ros_msgs.msg.DOCKING_FB_REST:
+                    if self.coupling_attempts >= self.max_coupling_attempts:
+                        return 'coupling_failed'
+                    rospy.logwarn("Coupling attempt " + str(self.coupling_attempts) + " out of " + str(self.max_coupling_attempts) + " failed. Retrying.")
+                    docking_cmd_pub.publish(docking_msg)
+                    self.coupling_attempts = self.cupling_attempts + 1
+            else:
+                rospy.sleep(0.1)
+
+
+        return 'coupling_failed'
+
+    def docking_feedback_callback(self, msg):
+        self.docking_feedback = msg
 
 class GetSetpointInPostDockArea(smach.State):
     def __init__(self, timeout=5.0):
