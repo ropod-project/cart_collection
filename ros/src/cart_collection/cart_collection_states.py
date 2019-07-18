@@ -30,8 +30,8 @@ def get_setpoint_in_front_of_pose(pose, distance):
 
     x_cart_in_world_frame = pose.pose.position.x
     y_cart_in_world_frame = pose.pose.position.y
-    x = x_cart_in_world_frame + distance * math.cos(yaw)
-    y = y_cart_in_world_frame + distance * math.sin(yaw)
+    x = x_cart_in_world_frame + (distance * math.cos(yaw))
+    y = y_cart_in_world_frame + (distance * math.sin(yaw))
 
     setpoint = geometry_msgs.msg.PoseStamped()
     setpoint.header =  pose.header
@@ -107,7 +107,7 @@ class GetSetpointInPreDockArea(smach.State):
         userdata.pre_dock_setpoint = None
         ropod_length = 0.73         # [m]
         cart_length = 0.81          # [m]
-        distance_to_cart = 1.5      # [m]
+        distance_to_cart = 1.0      # [m]
 
         #cart_pose = geometry_msgs.msg.PoseStamped()
         #cart_pose.header.frame_id = "map"
@@ -214,9 +214,11 @@ class AlignAndApproachCart(smach.State):
                                        'timeout'])
         self.cart_pose_feedback_sub = rospy.Subscriber('/cart_plane_detector/objects', ropod_ros_msgs.msg.ObjectList, self.cart_front_pose_callback)
         self.cmd_vel_pub = rospy.Publisher('/ropod/cmd_vel', geometry_msgs.msg.Twist, queue_size = 1)
+        self.cart_approach_pose_pub = rospy.Publisher('/cart_collection/cart_approach_pose', geometry_msgs.msg.PoseStamped, queue_size = 1)
         self.cart_front_pose = None
         self.timeout = rospy.Duration.from_sec(timeout)
         self.pose_reached =  False
+        self.offset_to_front = 0.45 # [m]
 
     def execute(self, userdata):
         self.cart_front_pose = None
@@ -225,7 +227,9 @@ class AlignAndApproachCart(smach.State):
         start_time = rospy.Time.now()
         while (rospy.Time.now() - start_time <= self.timeout) and not self.pose_reached:
             if self.cart_front_pose != None:
-                (vel, self.pose_reached) = self.calculate_final_approach_velocities(self.cart_front_pose)
+                cart_approach_pose = get_setpoint_in_front_of_pose(self.cart_front_pose, self.offset_to_front)
+                self.cart_approach_pose_pub.publish(cart_approach_pose)
+                (vel, self.pose_reached) = self.calculate_final_approach_velocities(cart_approach_pose)
                 self.cmd_vel_pub.publish(vel)
             else:
                 rospy.logwarn("Precondition for AlignAndApproachCart not met: No cart_front_pose reveived so far. Retrying.")
