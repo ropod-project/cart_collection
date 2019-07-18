@@ -216,7 +216,7 @@ class AlignAndApproachCart(smach.State):
         self.cart_front_pose = None
         self.timeout = rospy.Duration.from_sec(timeout)
         self.pose_reached =  False
-        self.offset_to_front = 0.50 # [m]
+        self.offset_to_front = 0.55 # [m]
 
     def execute(self, userdata):
         self.cart_front_pose = None
@@ -289,7 +289,7 @@ class AlignAndApproachCart(smach.State):
 
 
 class CoupleToCart(smach.State):
-    def __init__(self, timeout=10.0):
+    def __init__(self, timeout=60.0):
         smach.State.__init__(self,
                              outcomes=['coupling_succeeded',
                                        'coupling_failed',
@@ -323,6 +323,8 @@ class CoupleToCart(smach.State):
                     return 'coupling_succeeded'
                 if self.docking_feedback.docking_status == ropod_ros_msgs.msg.DockingFeedback.DOCKING_FB_REST:
                     if self.coupling_attempts >= self.max_coupling_attempts:
+                        docking_msg.docking_command = ropod_ros_msgs.msg.DockingCommand.DOCKING_COMMAND_RELEASE
+                        self.docking_cmd_pub.publish(docking_msg)
                         return 'coupling_failed'
                     rospy.logwarn("Coupling attempt " + str(self.coupling_attempts) + " out of " + str(self.max_coupling_attempts) + " failed. Retrying.")
                     self.docking_cmd_pub.publish(docking_msg)
@@ -330,7 +332,8 @@ class CoupleToCart(smach.State):
             else:
                 rospy.sleep(0.1)
 
-
+        docking_msg.docking_command = ropod_ros_msgs.msg.DockingCommand.DOCKING_COMMAND_RELEASE
+        self.docking_cmd_pub.publish(docking_msg)
         return 'coupling_failed'
 
     def docking_feedback_callback(self, msg):
