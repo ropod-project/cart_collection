@@ -135,7 +135,7 @@ class GetSetpointInPreDockArea(smach.State):
 
 
 class GoToPreDockSetpoint(smach.State):
-    def __init__(self, timeout=60.0):
+    def __init__(self, timeout=600.0):
         smach.State.__init__(self,
                              outcomes=['reached_setpoint',
                                        'setpoint_unreachable',
