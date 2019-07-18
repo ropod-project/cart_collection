@@ -68,7 +68,7 @@ class GetCartPose(smach.State):
         if (len(res.objects) == 0):
             return 'cart_not_found'
 
-        if(res.objects[0].pose.frame_id != "map"):
+        if(res.objects[0].pose.header.frame_id != "map"):
             rospy.logerr("Preconditon for GetCartPose not met: Pose is not in map frame. Aborting.")
             return 'cart_not_found'
 
