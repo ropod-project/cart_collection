@@ -135,7 +135,7 @@ class GetSetpointInPreDockArea(smach.State):
 
 
 class GoToPreDockSetpoint(smach.State):
-    def __init__(self, timeout=600.0):
+    def __init__(self, timeout=60.0):
         smach.State.__init__(self,
                              outcomes=['reached_setpoint',
                                        'setpoint_unreachable',
@@ -165,7 +165,7 @@ class GoToPreDockSetpoint(smach.State):
         # reconfigure to fine grained navigaiton
         #os.system("rosrun dynamic_reconfigure dynparam set /maneuver_navigation/TebLocalPlannerROS max_vel_x 0.3 &");
         #os.system("rosrun dynamic_reconfigure dynparam set /maneuver_navigation/TebLocalPlannerROS max_vel_theta 0.8 &");
-                               
+
         os.system("rosrun dynamic_reconfigure dynparam set /maneuver_navigation/TebLocalPlannerROS max_vel_y 0.5 &");
         os.system("rosrun dynamic_reconfigure dynparam set /maneuver_navigation/TebLocalPlannerROS weight_kinematics_nh 0 &");
         os.system("rosrun dynamic_reconfigure dynparam set /maneuver_navigation/TebLocalPlannerROS weight_kinematics_forward_drive 0 &");
@@ -212,7 +212,7 @@ class AlignAndApproachCart(smach.State):
                              outcomes=['approach_succeeded',
                                        'cart_not_found',
                                        'timeout'])
-        self.cart_pose_feedback_sub = rospy.Subscriber('/wm/docking_approach/cart_front', ropod_ros_msgs.msg.ObjectList, self.cart_front_pose_callback)
+        self.cart_pose_feedback_sub = rospy.Subscriber('/cart_plane_detector/objects', ropod_ros_msgs.msg.ObjectList, self.cart_front_pose_callback)
         self.cmd_vel_pub = rospy.Publisher('/ropod/cmd_vel', geometry_msgs.msg.Twist, queue_size = 1)
         self.cart_front_pose = None
         self.timeout = rospy.Duration.from_sec(timeout)
@@ -220,6 +220,7 @@ class AlignAndApproachCart(smach.State):
 
     def execute(self, userdata):
         self.cart_front_pose = None
+        self.pose_reached =  False
 
         start_time = rospy.Time.now()
         while (rospy.Time.now() - start_time <= self.timeout) and not self.pose_reached:
@@ -238,7 +239,7 @@ class AlignAndApproachCart(smach.State):
 
     def cart_front_pose_callback(self, msg):
         if(len(msg.objects) > 0):
-            self.cart_front_pose =  msg.objects[0]
+            self.cart_front_pose =  msg.objects[0].pose
         if(len(msg.objects) > 1):
             rospy.logwarn("Precondition for cart_front_pose_callback not met: Only one cart front beeing detected. Taking the first one.")
 
