@@ -6,20 +6,20 @@ from ropod_ros_msgs.msg import DockingCommand, DockingFeedback
 
 class CoupleToCart(smach.State):
     def __init__(self, timeout=60.0,
-                 docking_cmd_topic_name='/ropod/ropod_low_level_control/cmd_dock',
-                 docking_feedback_topic_name='/ropod/ropod_low_level_control/dockingFeedback',
-                 nav_load_attached_topic_name='/route_navigation/set_load_attached',
+                 docking_cmd_topic='/ropod/ropod_low_level_control/cmd_dock',
+                 docking_feedback_topic='/ropod/ropod_low_level_control/dockingFeedback',
+                 nav_load_attached_topic='/route_navigation/set_load_attached',
                  max_coupling_attempts=3):
         smach.State.__init__(self, outcomes=['coupling_succeeded',
                                              'coupling_failed',
                                              'cannot_switch_to_load_mode'])
-        self.docking_cmd_pub = rospy.Publisher(docking_cmd_topic_name,
+        self.docking_cmd_pub = rospy.Publisher(docking_cmd_topic,
                                                DockingCommand,
                                                queue_size=1)
-        self.cart_pose_feedback_sub = rospy.Subscriber(docking_feedback_topic_name,
+        self.cart_pose_feedback_sub = rospy.Subscriber(docking_feedback_topic,
                                                        DockingFeedback,
                                                        self.docking_feedback_callback)
-        self.nav_load_attached_pub = rospy.Publisher(nav_load_attached_topic_name,
+        self.nav_load_attached_pub = rospy.Publisher(nav_load_attached_topic,
                                                      Bool, queue_size=1)
         self.docking_feedback = None
         self.coupling_attempts = 0

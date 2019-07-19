@@ -10,12 +10,12 @@ class GetSetpointInPreDockArea(smach.State):
                  robot_length_m=0.73,
                  cart_length_m=0.81,
                  distance_to_cart_m=1.,
-                 cart_predock_pose_topic_name='/cart_collection/cart_predock_pose'):
+                 cart_predock_pose_topic='/cart_collection/cart_predock_pose'):
         smach.State.__init__(self,
                              outcomes=['setpoint_found', 'setpoint_unreachable'],
                              input_keys=['cart_pose'],
                              output_keys=['pre_dock_setpoint'])
-        self.cart_predock_pub = rospy.Publisher(cart_predock_pose_topic_name,
+        self.cart_predock_pub = rospy.Publisher(cart_predock_pose_topic,
                                                 PoseStamped,
                                                 queue_size=1)
         self.timeout = timeout

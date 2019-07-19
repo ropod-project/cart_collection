@@ -8,17 +8,17 @@ from maneuver_navigation.msg import Feedback as ManeuverNavFeedback
 
 class GoToPreDockSetpoint(smach.State):
     def __init__(self, timeout=60.0,
-                 nav_goal_topic_name='/route_navigation/goal',
-                 nav_feedback_topic_name='/route_navigation/feedback',
+                 nav_goal_topic='/route_navigation/goal',
+                 nav_feedback_topic='/route_navigation/feedback',
                  localisation_topic='/amcl_pose'):
         smach.State.__init__(self, outcomes=['reached_setpoint',
                                              'setpoint_unreachable',
                                              'timeout'],
                              input_keys=['pre_dock_setpoint'])
-        self.nav_goal_pub = rospy.Publisher(nav_goal_topic_name,
+        self.nav_goal_pub = rospy.Publisher(nav_goal_topic,
                                             ManeuverNavGoal,
                                             queue_size=1)
-        self.nav_feedback_sub = rospy.Subscriber(nav_feedback_topic_name,
+        self.nav_feedback_sub = rospy.Subscriber(nav_feedback_topic,
                                                  ManeuverNavFeedback,
                                                  self.feedback_callback)
         self.robot_pose_sub = rospy.Subscriber(localisation_topic,

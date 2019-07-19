@@ -11,7 +11,7 @@ class AlignAndApproachCart(smach.State):
     def __init__(self, timeout=15.0,
                  cart_pose_feedback_topic='/cart_plane_detector/objects',
                  cmd_vel_topic='/ropod/cmd_vel',
-                 cart_approach_pose_topic_name='/cart_collection/cart_approach_pose',
+                 cart_approach_pose_topic='/cart_collection/cart_approach_pose',
                  offset_to_approach_pose_m=0.55,
                  backward_vel_docking_ms=0.1,
                  max_rot_vel_docking_rads=0.1,
@@ -25,7 +25,7 @@ class AlignAndApproachCart(smach.State):
                                                        ObjectList,
                                                        self.cart_front_pose_callback)
         self.cmd_vel_pub = rospy.Publisher(cmd_vel_topic, Twist, queue_size=1)
-        self.cart_approach_pose_pub = rospy.Publisher(cart_approach_pose_topic_name,
+        self.cart_approach_pose_pub = rospy.Publisher(cart_approach_pose_topic,
                                                       PoseStamped,
                                                       queue_size=1)
         self.offset_to_front = offset_to_approach_pose_m

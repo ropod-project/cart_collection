@@ -1,7 +1,7 @@
 #!/usr/bin/python
 import rospy
 
-import smach
+from smach import StateMachine
 from cart_collection.get_cart_pose import GetCartPose
 from cart_collection.look_for_cart import LookForCart
 from cart_collection.get_cart_setpoint import GetSetpointInPreDockArea
@@ -13,50 +13,111 @@ from cart_collection.go_to_post_dock_setpoint import GoToPostDockSetpoint
 
 def main():
     rospy.init_node('cart_collection')
-    SM = smach.StateMachine(outcomes=['done', 'failed'])
+
+    # get cart pose state params
+    map_frame_name = rospy.get_param('~map_frame_name', 'map')
+    get_objects_server_name = rospy.get_param('~get_objects_server_name',
+                                              '/get_objects')
+    cart_pose_topic = rospy.get_param('~cart_pose_topic',
+                                      '/cart_collection/selected_cart_pose')
+
+    # get cart setpoint state params
+    robot_length_m = float(rospy.get_param('~robot_length_m', '0.73'))
+    cart_length_m = float(rospy.get_param('~cart_length_m', '0.81'))
+    distance_to_cart_m = float(rospy.get_param('~distance_to_cart_m', '1.0'))
+    cart_predock_pose_topic = rospy.get_param('~cart_predock_pose_topic',
+                                              '/cart_collection/cart_predock_pose')
+
+    # go to predock setpoint state params
+    nav_goal_topic = rospy.get_param('~nav_goal_topic', '/route_navigation/goal')
+    nav_feedback_topic = rospy.get_param('~nav_feedback_topic', '/route_navigation/feedback')
+    localisation_topic = rospy.get_param('~localisation_topic', '/amcl_pose')
+
+    # align and approach cart state params
+    cart_pose_feedback_topic = rospy.get_param('~cart_pose_feedback_topic',
+                                               '/cart_plane_detector/objects')
+    cmd_vel_topic = rospy.get_param('~cmd_vel_topic', '/ropod/cmd_vel')
+    cart_approach_pose_topic = rospy.get_param('~cart_approach_pose_topic',
+                                               '/cart_collection/cart_approach_pose')
+    offset_to_approach_pose_m = float(rospy.get_param('~offset_to_approach_pose_m', '0.55'))
+    backward_vel_docking_ms = float(rospy.get_param('~backward_vel_docking_ms', '0.1'))
+    max_rot_vel_docking_rads = float(rospy.get_param('~max_rot_vel_docking_rads', '0.1'))
+    approach_x_thresh_m = float(rospy.get_param('~approach_x_thresh_m', '0.05'))
+    approach_y_thresh_m = float(rospy.get_param('~approach_y_thresh_m', '0.05'))
+    approach_yaw_thresh_rad = float(rospy.get_param('~approach_yaw_thresh_rad', '0.1'))
+
+    # couple to cart state params
+    docking_cmd_topic = rospy.get_param('~docking_cmd_topic',
+                                        '/ropod/ropod_low_level_control/cmd_dock')
+    docking_feedback_topic = rospy.get_param('~docking_feedback_topic',
+                                             '/ropod/ropod_low_level_control/dockingFeedback')
+    nav_load_attached_topic = rospy.get_param('~nav_load_attached_topic',
+                                              '/route_navigation/set_load_attached')
+    max_coupling_attempts = int(rospy.get_param('max_coupling_attempts', '3'))
+
+
+    SM = StateMachine(outcomes=['done', 'failed'])
     SM.userdata.docking_area = '60' #61 = next to C025; 60 = next to C022
     SM.userdata.cart_pose = None
     SM.userdata.pre_dock_setpoint = None
     SM.userdata.post_dock_setpoint = None
 
     with SM:
-        smach.StateMachine.add('GET_CART_POSE', GetCartPose(),
-                               transitions={'cart_found': 'GET_SETPOINT_IN_PRE_DOCK_AREA',
-                                            'cart_not_found': 'LOOK_FOR_CART',
-                                            'timeout': 'failed'})
+        StateMachine.add('GET_CART_POSE', GetCartPose(map_frame_name=map_frame_name,
+                                                      get_objects_server_name=get_objects_server_name,
+                                                      cart_pose_topic=cart_pose_topic),
+                         transitions={'cart_found': 'GET_SETPOINT_IN_PRE_DOCK_AREA',
+                                      'cart_not_found': 'LOOK_FOR_CART',
+                                      'timeout': 'failed'})
 
-        smach.StateMachine.add('LOOK_FOR_CART', LookForCart(),
-                               transitions={'cart_found': 'GET_SETPOINT_IN_PRE_DOCK_AREA',
-                                            'cart_not_found': 'failed',
-                                            'timeout': 'failed'})
+        StateMachine.add('LOOK_FOR_CART', LookForCart(),
+                         transitions={'cart_found': 'GET_SETPOINT_IN_PRE_DOCK_AREA',
+                                      'cart_not_found': 'failed',
+                                      'timeout': 'failed'})
 
-        smach.StateMachine.add('GET_SETPOINT_IN_PRE_DOCK_AREA', GetSetpointInPreDockArea(),
-                               transitions={'setpoint_found': 'GO_TO_PRE_DOCK_SETPOINT',
-                                            'setpoint_unreachable': 'failed'})
+        StateMachine.add('GET_SETPOINT_IN_PRE_DOCK_AREA', GetSetpointInPreDockArea(robot_length_m=robot_length_m,
+                                                                                   cart_length_m=cart_length_m,
+                                                                                   distance_to_cart_m=distance_to_cart_m,
+                                                                                   cart_predock_pose_topic=cart_predock_pose_topic),
+                         transitions={'setpoint_found': 'GO_TO_PRE_DOCK_SETPOINT',
+                                      'setpoint_unreachable': 'failed'})
 
-        smach.StateMachine.add('GO_TO_PRE_DOCK_SETPOINT', GoToPreDockSetpoint(),
-                               transitions={'reached_setpoint': 'ALIGN_AND_APPROACH_CART',
-                                            'setpoint_unreachable': 'failed',
-                                            'timeout': 'failed'})
+        StateMachine.add('GO_TO_PRE_DOCK_SETPOINT', GoToPreDockSetpoint(nav_goal_topic=nav_goal_topic,
+                                                                        nav_feedback_topic=nav_feedback_topic,
+                                                                        localisation_topic=localisation_topic),
+                         transitions={'reached_setpoint': 'ALIGN_AND_APPROACH_CART',
+                                      'setpoint_unreachable': 'failed',
+                                      'timeout': 'failed'})
 
-        smach.StateMachine.add('ALIGN_AND_APPROACH_CART', AlignAndApproachCart(),
-                               transitions={'approach_succeeded': 'COUPLE_TO_CART',
-                                            'cart_not_found': 'GET_CART_POSE',
-                                            'timeout': 'GO_TO_PRE_DOCK_SETPOINT'})
+        StateMachine.add('ALIGN_AND_APPROACH_CART', AlignAndApproachCart(cart_pose_feedback_topic=cart_pose_feedback_topic,
+                                                                         cmd_vel_topic=cmd_vel_topic,
+                                                                         cart_approach_pose_topic=cart_approach_pose_topic,
+                                                                         offset_to_approach_pose_m=offset_to_approach_pose_m,
+                                                                         backward_vel_docking_ms=backward_vel_docking_ms,
+                                                                         max_rot_vel_docking_rads=max_rot_vel_docking_rads,
+                                                                         approach_x_thresh_m=approach_x_thresh_m,
+                                                                         approach_y_thresh_m=approach_y_thresh_m,
+                                                                         approach_yaw_thresh_rad=approach_yaw_thresh_rad),
+                         transitions={'approach_succeeded': 'COUPLE_TO_CART',
+                                      'cart_not_found': 'GET_CART_POSE',
+                                      'timeout': 'GO_TO_PRE_DOCK_SETPOINT'})
 
-        smach.StateMachine.add('COUPLE_TO_CART', CoupleToCart(),
-                               transitions={'coupling_succeeded': 'GET_SETPOINT_IN_POST_DOCK_AREA',
-                                            'coupling_failed': 'GO_TO_PRE_DOCK_SETPOINT',
-                                            'cannot_switch_to_load_mode': 'failed'})
+        StateMachine.add('COUPLE_TO_CART', CoupleToCart(docking_cmd_topic=docking_cmd_topic,
+                                                        docking_feedback_topic=docking_feedback_topic,
+                                                        nav_load_attached_topic=nav_load_attached_topic,
+                                                        max_coupling_attempts=max_coupling_attempts),
+                         transitions={'coupling_succeeded': 'GET_SETPOINT_IN_POST_DOCK_AREA',
+                                      'coupling_failed': 'GO_TO_PRE_DOCK_SETPOINT',
+                                      'cannot_switch_to_load_mode': 'failed'})
 
-        smach.StateMachine.add('GET_SETPOINT_IN_POST_DOCK_AREA', GetSetpointInPostDockArea(),
-                               transitions={'setpoint_found': 'GO_TO_POST_DOCK_SETPOINT',
-                                            'setpoint_unreachable': 'done'})
+        StateMachine.add('GET_SETPOINT_IN_POST_DOCK_AREA', GetSetpointInPostDockArea(),
+                         transitions={'setpoint_found': 'GO_TO_POST_DOCK_SETPOINT',
+                                      'setpoint_unreachable': 'done'})
 
-        smach.StateMachine.add('GO_TO_POST_DOCK_SETPOINT', GoToPostDockSetpoint(),
-                               transitions={'reached_setpoint': 'done',
-                                            'setpoint_unreachable': 'done',
-                                            'timeout': 'done'})
+        StateMachine.add('GO_TO_POST_DOCK_SETPOINT', GoToPostDockSetpoint(),
+                         transitions={'reached_setpoint': 'done',
+                                      'setpoint_unreachable': 'done',
+                                      'timeout': 'done'})
     result = SM.execute()
     while result is None:
         rospy.spin()
