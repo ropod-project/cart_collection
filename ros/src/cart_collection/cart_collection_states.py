@@ -1,13 +1,16 @@
+import os
+import math
+
 import rospy
 import smach
 import actionlib
-import ropod_ros_msgs.msg
+from tf.transformations import euler_from_quaternion, quaternion_from_euler
+
 import geometry_msgs.msg
 import std_msgs.msg
-from tf.transformations import euler_from_quaternion, quaternion_from_euler
-import math
 import maneuver_navigation.msg
-import os
+import ropod_ros_msgs.msg
+
 
 def get_yaw_from_pose(pose):
         orientation_q = pose.pose.orientation
