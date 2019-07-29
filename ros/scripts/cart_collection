@@ -1,7 +1,11 @@
 #!/usr/bin/python
 import rospy
-
 from smach import StateMachine
+from smach_ros import ActionServerWrapper
+
+from ropod_ros_msgs.msg import DockAction
+
+from cart_collection.action_states import GetCartCollectionGoal, SetActionResult
 from cart_collection.get_cart_pose import GetCartPose
 from cart_collection.look_for_cart import LookForCart
 from cart_collection.get_cart_setpoint import GetSetpointInPreDockArea
@@ -11,116 +15,138 @@ from cart_collection.couple_to_cart import CoupleToCart
 from cart_collection.get_setpoint_in_post_dock_area import GetSetpointInPostDockArea
 from cart_collection.go_to_post_dock_setpoint import GoToPostDockSetpoint
 
+
+class CartCollectionSM(StateMachine):
+    def __init__(self):
+        StateMachine.__init__(self, outcomes=['done', 'failed'],
+                              input_keys=['collect_cart_goal'],
+                              output_keys=['collect_cart_result'])
+
+        # get cart pose state params
+        map_frame_name = rospy.get_param('~map_frame_name', 'map')
+        get_objects_server_name = rospy.get_param('~get_objects_server_name',
+                                                  '/get_objects')
+        cart_pose_topic = rospy.get_param('~cart_pose_topic',
+                                          '/cart_collection/selected_cart_pose')
+
+        # get cart setpoint state params
+        robot_length_m = float(rospy.get_param('~robot_length_m', '0.73'))
+        cart_length_m = float(rospy.get_param('~cart_length_m', '0.81'))
+        distance_to_cart_m = float(rospy.get_param('~distance_to_cart_m', '1.0'))
+        cart_predock_pose_topic = rospy.get_param('~cart_predock_pose_topic',
+                                                  '/cart_collection/cart_predock_pose')
+
+        # go to predock setpoint state params
+        nav_goal_topic = rospy.get_param('~nav_goal_topic', '/route_navigation/goal')
+        nav_feedback_topic = rospy.get_param('~nav_feedback_topic', '/route_navigation/feedback')
+        localisation_topic = rospy.get_param('~localisation_topic', '/amcl_pose')
+
+        # align and approach cart state params
+        cart_pose_feedback_topic = rospy.get_param('~cart_pose_feedback_topic',
+                                                   '/cart_plane_detector/objects')
+        cmd_vel_topic = rospy.get_param('~cmd_vel_topic', '/ropod/cmd_vel')
+        cart_approach_pose_topic = rospy.get_param('~cart_approach_pose_topic',
+                                                   '/cart_collection/cart_approach_pose')
+        offset_to_approach_pose_m = float(rospy.get_param('~offset_to_approach_pose_m', '0.55'))
+        backward_vel_docking_ms = float(rospy.get_param('~backward_vel_docking_ms', '0.1'))
+        max_rot_vel_docking_rads = float(rospy.get_param('~max_rot_vel_docking_rads', '0.1'))
+        approach_x_thresh_m = float(rospy.get_param('~approach_x_thresh_m', '0.05'))
+        approach_y_thresh_m = float(rospy.get_param('~approach_y_thresh_m', '0.05'))
+        approach_yaw_thresh_rad = float(rospy.get_param('~approach_yaw_thresh_rad', '0.1'))
+
+        # couple to cart state params
+        docking_cmd_topic = rospy.get_param('~docking_cmd_topic',
+                                            '/ropod/ropod_low_level_control/cmd_dock')
+        docking_feedback_topic = rospy.get_param('~docking_feedback_topic',
+                                                 '/ropod/ropod_low_level_control/dockingFeedback')
+        nav_load_attached_topic = rospy.get_param('~nav_load_attached_topic',
+                                                  '/route_navigation/set_load_attached')
+        max_coupling_attempts = int(rospy.get_param('max_coupling_attempts', '3'))
+
+
+        with self:
+            StateMachine.add('GET_COLLECTION_GOAL', GetCartCollectionGoal(),
+                             transitions={'dock': 'GET_CART_POSE',
+                                          'undock': 'GET_CART_POSE', # TODO: add undocking states
+                                          'invalid_goal': 'SET_ACTION_FAILURE'})
+
+            StateMachine.add('GET_CART_POSE', GetCartPose(map_frame_name=map_frame_name,
+                                                          get_objects_server_name=get_objects_server_name,
+                                                          cart_pose_topic=cart_pose_topic),
+                             transitions={'cart_found': 'GET_SETPOINT_IN_PRE_DOCK_AREA',
+                                          'cart_not_found': 'LOOK_FOR_CART',
+                                          'timeout': 'SET_ACTION_FAILURE'})
+
+            StateMachine.add('LOOK_FOR_CART', LookForCart(),
+                             transitions={'cart_found': 'GET_SETPOINT_IN_PRE_DOCK_AREA',
+                                          'cart_not_found': 'SET_ACTION_FAILURE',
+                                          'timeout': 'SET_ACTION_FAILURE'})
+
+            StateMachine.add('GET_SETPOINT_IN_PRE_DOCK_AREA', GetSetpointInPreDockArea(robot_length_m=robot_length_m,
+                                                                                       cart_length_m=cart_length_m,
+                                                                                       distance_to_cart_m=distance_to_cart_m,
+                                                                                       cart_predock_pose_topic=cart_predock_pose_topic),
+                             transitions={'setpoint_found': 'GO_TO_PRE_DOCK_SETPOINT',
+                                          'setpoint_unreachable': 'SET_ACTION_FAILURE'})
+
+            StateMachine.add('GO_TO_PRE_DOCK_SETPOINT', GoToPreDockSetpoint(nav_goal_topic=nav_goal_topic,
+                                                                            nav_feedback_topic=nav_feedback_topic,
+                                                                            localisation_topic=localisation_topic),
+                             transitions={'reached_setpoint': 'ALIGN_AND_APPROACH_CART',
+                                          'setpoint_unreachable': 'SET_ACTION_FAILURE',
+                                          'timeout': 'SET_ACTION_FAILURE'})
+
+            StateMachine.add('ALIGN_AND_APPROACH_CART', AlignAndApproachCart(cart_pose_feedback_topic=cart_pose_feedback_topic,
+                                                                             cmd_vel_topic=cmd_vel_topic,
+                                                                             cart_approach_pose_topic=cart_approach_pose_topic,
+                                                                             offset_to_approach_pose_m=offset_to_approach_pose_m,
+                                                                             backward_vel_docking_ms=backward_vel_docking_ms,
+                                                                             max_rot_vel_docking_rads=max_rot_vel_docking_rads,
+                                                                             approach_x_thresh_m=approach_x_thresh_m,
+                                                                             approach_y_thresh_m=approach_y_thresh_m,
+                                                                             approach_yaw_thresh_rad=approach_yaw_thresh_rad),
+                             transitions={'approach_succeeded': 'COUPLE_TO_CART',
+                                          'cart_not_found': 'GET_CART_POSE',
+                                          'timeout': 'GO_TO_PRE_DOCK_SETPOINT'})
+
+            StateMachine.add('COUPLE_TO_CART', CoupleToCart(docking_cmd_topic=docking_cmd_topic,
+                                                            docking_feedback_topic=docking_feedback_topic,
+                                                            nav_load_attached_topic=nav_load_attached_topic,
+                                                            max_coupling_attempts=max_coupling_attempts),
+                             transitions={'coupling_succeeded': 'GET_SETPOINT_IN_POST_DOCK_AREA',
+                                          'coupling_failed': 'GO_TO_PRE_DOCK_SETPOINT',
+                                          'cannot_switch_to_load_mode': 'SET_ACTION_FAILURE'})
+
+            StateMachine.add('GET_SETPOINT_IN_POST_DOCK_AREA', GetSetpointInPostDockArea(),
+                             transitions={'setpoint_found': 'GO_TO_POST_DOCK_SETPOINT',
+                                          'setpoint_unreachable': 'SET_ACTION_SUCCESS'})
+
+            StateMachine.add('GO_TO_POST_DOCK_SETPOINT', GoToPostDockSetpoint(),
+                             transitions={'reached_setpoint': 'SET_ACTION_SUCCESS',
+                                          'setpoint_unreachable': 'SET_ACTION_SUCCESS',
+                                          'timeout': 'SET_ACTION_SUCCESS'})
+
+            StateMachine.add('SET_ACTION_SUCCESS', SetActionResult(True),
+                             transitions={'done': 'done'})
+
+            StateMachine.add('SET_ACTION_FAILURE', SetActionResult(False),
+                             transitions={'done': 'failed'})
+
 def main():
     rospy.init_node('cart_collection')
 
-    # get cart pose state params
-    map_frame_name = rospy.get_param('~map_frame_name', 'map')
-    get_objects_server_name = rospy.get_param('~get_objects_server_name',
-                                              '/get_objects')
-    cart_pose_topic = rospy.get_param('~cart_pose_topic',
-                                      '/cart_collection/selected_cart_pose')
+    docking_sm = CartCollectionSM()
+    action = ActionServerWrapper(
+        server_name='collect_cart',
+        action_spec=DockAction,
+        wrapped_container=docking_sm,
+        succeeded_outcomes=['done'],
+        aborted_outcomes=['failed'],
+        goal_key='collect_cart_goal',
+        result_key='collect_cart_result')
 
-    # get cart setpoint state params
-    robot_length_m = float(rospy.get_param('~robot_length_m', '0.73'))
-    cart_length_m = float(rospy.get_param('~cart_length_m', '0.81'))
-    distance_to_cart_m = float(rospy.get_param('~distance_to_cart_m', '1.0'))
-    cart_predock_pose_topic = rospy.get_param('~cart_predock_pose_topic',
-                                              '/cart_collection/cart_predock_pose')
-
-    # go to predock setpoint state params
-    nav_goal_topic = rospy.get_param('~nav_goal_topic', '/route_navigation/goal')
-    nav_feedback_topic = rospy.get_param('~nav_feedback_topic', '/route_navigation/feedback')
-    localisation_topic = rospy.get_param('~localisation_topic', '/amcl_pose')
-
-    # align and approach cart state params
-    cart_pose_feedback_topic = rospy.get_param('~cart_pose_feedback_topic',
-                                               '/cart_plane_detector/objects')
-    cmd_vel_topic = rospy.get_param('~cmd_vel_topic', '/ropod/cmd_vel')
-    cart_approach_pose_topic = rospy.get_param('~cart_approach_pose_topic',
-                                               '/cart_collection/cart_approach_pose')
-    offset_to_approach_pose_m = float(rospy.get_param('~offset_to_approach_pose_m', '0.55'))
-    backward_vel_docking_ms = float(rospy.get_param('~backward_vel_docking_ms', '0.1'))
-    max_rot_vel_docking_rads = float(rospy.get_param('~max_rot_vel_docking_rads', '0.1'))
-    approach_x_thresh_m = float(rospy.get_param('~approach_x_thresh_m', '0.05'))
-    approach_y_thresh_m = float(rospy.get_param('~approach_y_thresh_m', '0.05'))
-    approach_yaw_thresh_rad = float(rospy.get_param('~approach_yaw_thresh_rad', '0.1'))
-
-    # couple to cart state params
-    docking_cmd_topic = rospy.get_param('~docking_cmd_topic',
-                                        '/ropod/ropod_low_level_control/cmd_dock')
-    docking_feedback_topic = rospy.get_param('~docking_feedback_topic',
-                                             '/ropod/ropod_low_level_control/dockingFeedback')
-    nav_load_attached_topic = rospy.get_param('~nav_load_attached_topic',
-                                              '/route_navigation/set_load_attached')
-    max_coupling_attempts = int(rospy.get_param('max_coupling_attempts', '3'))
-
-
-    SM = StateMachine(outcomes=['done', 'failed'])
-    SM.userdata.docking_area = '60' #61 = next to C025; 60 = next to C022
-    SM.userdata.cart_pose = None
-    SM.userdata.pre_dock_setpoint = None
-    SM.userdata.post_dock_setpoint = None
-
-    with SM:
-        StateMachine.add('GET_CART_POSE', GetCartPose(map_frame_name=map_frame_name,
-                                                      get_objects_server_name=get_objects_server_name,
-                                                      cart_pose_topic=cart_pose_topic),
-                         transitions={'cart_found': 'GET_SETPOINT_IN_PRE_DOCK_AREA',
-                                      'cart_not_found': 'LOOK_FOR_CART',
-                                      'timeout': 'failed'})
-
-        StateMachine.add('LOOK_FOR_CART', LookForCart(),
-                         transitions={'cart_found': 'GET_SETPOINT_IN_PRE_DOCK_AREA',
-                                      'cart_not_found': 'failed',
-                                      'timeout': 'failed'})
-
-        StateMachine.add('GET_SETPOINT_IN_PRE_DOCK_AREA', GetSetpointInPreDockArea(robot_length_m=robot_length_m,
-                                                                                   cart_length_m=cart_length_m,
-                                                                                   distance_to_cart_m=distance_to_cart_m,
-                                                                                   cart_predock_pose_topic=cart_predock_pose_topic),
-                         transitions={'setpoint_found': 'GO_TO_PRE_DOCK_SETPOINT',
-                                      'setpoint_unreachable': 'failed'})
-
-        StateMachine.add('GO_TO_PRE_DOCK_SETPOINT', GoToPreDockSetpoint(nav_goal_topic=nav_goal_topic,
-                                                                        nav_feedback_topic=nav_feedback_topic,
-                                                                        localisation_topic=localisation_topic),
-                         transitions={'reached_setpoint': 'ALIGN_AND_APPROACH_CART',
-                                      'setpoint_unreachable': 'failed',
-                                      'timeout': 'failed'})
-
-        StateMachine.add('ALIGN_AND_APPROACH_CART', AlignAndApproachCart(cart_pose_feedback_topic=cart_pose_feedback_topic,
-                                                                         cmd_vel_topic=cmd_vel_topic,
-                                                                         cart_approach_pose_topic=cart_approach_pose_topic,
-                                                                         offset_to_approach_pose_m=offset_to_approach_pose_m,
-                                                                         backward_vel_docking_ms=backward_vel_docking_ms,
-                                                                         max_rot_vel_docking_rads=max_rot_vel_docking_rads,
-                                                                         approach_x_thresh_m=approach_x_thresh_m,
-                                                                         approach_y_thresh_m=approach_y_thresh_m,
-                                                                         approach_yaw_thresh_rad=approach_yaw_thresh_rad),
-                         transitions={'approach_succeeded': 'COUPLE_TO_CART',
-                                      'cart_not_found': 'GET_CART_POSE',
-                                      'timeout': 'GO_TO_PRE_DOCK_SETPOINT'})
-
-        StateMachine.add('COUPLE_TO_CART', CoupleToCart(docking_cmd_topic=docking_cmd_topic,
-                                                        docking_feedback_topic=docking_feedback_topic,
-                                                        nav_load_attached_topic=nav_load_attached_topic,
-                                                        max_coupling_attempts=max_coupling_attempts),
-                         transitions={'coupling_succeeded': 'GET_SETPOINT_IN_POST_DOCK_AREA',
-                                      'coupling_failed': 'GO_TO_PRE_DOCK_SETPOINT',
-                                      'cannot_switch_to_load_mode': 'failed'})
-
-        StateMachine.add('GET_SETPOINT_IN_POST_DOCK_AREA', GetSetpointInPostDockArea(),
-                         transitions={'setpoint_found': 'GO_TO_POST_DOCK_SETPOINT',
-                                      'setpoint_unreachable': 'done'})
-
-        StateMachine.add('GO_TO_POST_DOCK_SETPOINT', GoToPostDockSetpoint(),
-                         transitions={'reached_setpoint': 'done',
-                                      'setpoint_unreachable': 'done',
-                                      'timeout': 'done'})
-    result = SM.execute()
-    while result is None:
-        rospy.spin()
+    action.run_server()
+    rospy.spin()
 
 if __name__ == '__main__':
     main()
