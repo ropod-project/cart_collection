@@ -3,24 +3,24 @@
     <node name="cart_collection" pkg="cart_collection" type="cart_collection" output="screen">
         <!-- get cart pose state params -->
         <param name="map_frame_name" type="str" value="map" />
-        <param name="get_objects_server_name" type="str" value="/get_objects" />
-        <param name="cart_pose_topic" type="str" value="/cart_collection/selected_cart_pose" />
+        <remap from="get_objects" to="/get_objects" />
+        <remap from="cart_pose" to="/cart_collection/selected_cart_pose" />
 
         <!-- get cart setpoint state params -->
         <param name="robot_length_m" type="double" value="0.73" />
         <param name="cart_length_m" type="double" value="0.81" />
         <param name="distance_to_cart_m" type="double" value="1.0" />
-        <param name="cart_predock_pose_topic" type="str" value="/cart_collection/cart_predock_pose" />
+        <remap from="cart_predock_pose" to="/cart_collection/cart_predock_pose" />
 
         <!-- go to predock setpoint state params -->
-        <param name="nav_goal_topic" type="str" value="/route_navigation/goal" />
-        <param name="nav_feedback_topic" type="str" value="/route_navigation/feedback" />
-        <param name="localisation_topic" type="str" value="/amcl_pose" />
+        <remap from="nav_goal" to="/route_navigation/goal" />
+        <remap from="nav_feedback" to="/route_navigation/feedback" />
+        <remap from="localisation_pose" to="/amcl_pose" />
 
         <!-- align and approach cart state params -->
-        <param name="cart_pose_feedback_topic" type="str" value="/cart_plane_detector/objects" />
-        <param name="cmd_vel_topic" type="str" value="/ropod/cmd_vel" />
-        <param name="cart_approach_pose_topic" type="str" value="/cart_collection/cart_approach_pose" />
+        <remap from="cart_pose_feedback" to="/cart_plane_detector/objects" />
+        <remap from="cmd_vel" to="/ropod/cmd_vel" />
+        <remap from="cart_approach_pose" to="/cart_collection/cart_approach_pose" />
         <param name="offset_to_approach_pose_m" type="double" value="0.55" />
         <param name="backward_vel_docking_ms" type="double" value="0.1" />
         <param name="max_rot_vel_docking_rads" type="double" value="0.1" />
@@ -29,9 +29,9 @@
         <param name="approach_yaw_thresh_rad" type="double" value="0.1" />
 
         <!-- couple to cart state params-->
-        <param name="docking_cmd_topic" type="str" value="/ropod/ropod_low_level_control/cmd_dock" />
-        <param name="docking_feedback_topic" type="str" value="/ropod/ropod_low_level_control/dockingFeedback" />
-        <param name="nav_load_attached_topic" type="str" value="/route_navigation/set_load_attached" />
+        <remap from="docking_cmd" to="/ropod/ropod_low_level_control/cmd_dock" />
+        <remap from="docking_feedback" to="/ropod/ropod_low_level_control/dockingFeedback" />
+        <remap from="set_load_attached" to="/route_navigation/set_load_attached" />
         <param name="max_coupling_attempts" type="int" value="3" />
     </node>
 </launch>
