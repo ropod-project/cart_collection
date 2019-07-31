@@ -4,6 +4,7 @@ import rospy
 
 from geometry_msgs.msg import Twist, PoseStamped
 from ropod_ros_msgs.msg import ObjectList
+from ropod_ros_msgs.srv import ToggleObjectPublisher, ToggleObjectPublisherRequest
 
 from cart_collection.cart_collection_utils import get_setpoint_in_front_of_pose, get_yaw_from_pose
 
@@ -17,6 +18,7 @@ class AlignAndApproachCart(smach.State):
                  approach_yaw_thresh_rad=0.1):
         smach.State.__init__(self, outcomes=['approach_succeeded',
                                              'cart_not_found',
+                                             'cart_pose_publisher_not_available',
                                              'timeout'])
         self.cart_pose_feedback_sub = rospy.Subscriber("cart_pose_feedback",
                                                        ObjectList,
@@ -25,6 +27,7 @@ class AlignAndApproachCart(smach.State):
         self.cart_approach_pose_pub = rospy.Publisher("cart_approach_pose",
                                                       PoseStamped,
                                                       queue_size=1)
+        self.toggle_cart_publisher_client = rospy.ServiceProxy('toggle_cart_publisher_srv', ToggleObjectPublisher)
         self.offset_to_front = offset_to_approach_pose_m
         self.backward_vel_docking_ms = backward_vel_docking_ms
         self.max_rot_vel_docking_rads = max_rot_vel_docking_rads
@@ -39,6 +42,9 @@ class AlignAndApproachCart(smach.State):
     def execute(self, userdata):
         self.cart_front_pose = None
         self.pose_reached =  False
+        resp = self.toggle_cart_publisher_client(enable_publisher=True)
+        if (not resp.success):
+            return 'cart_pose_publisher_not_available'
 
         start_time = rospy.Time.now()
         while (rospy.Time.now() - start_time <= self.timeout) and not self.pose_reached:
@@ -49,11 +55,13 @@ class AlignAndApproachCart(smach.State):
                 (vel, self.pose_reached) = self.calculate_final_approach_velocities(cart_approach_pose)
                 self.cmd_vel_pub.publish(vel)
             else:
-                rospy.logwarn("[cart_collector] Precondition for AlignAndApproachCart not met: No cart_front_pose reveived so far. Retrying.")
+                rospy.logwarn("[cart_collector] Precondition for AlignAndApproachCart not met: No cart_front_pose received so far. Retrying.")
             rospy.sleep(0.1)
 
         if self.pose_reached:
+            resp = self.toggle_cart_publisher_client(enable_publisher=False)
             return 'approach_succeeded'
+        resp = self.toggle_cart_publisher_client(enable_publisher=False)
         return 'timeout'
 
     def cart_front_pose_callback(self, msg):

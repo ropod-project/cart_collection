@@ -112,6 +112,7 @@ class CartCollectionSM(StateMachine):
                                                                              approach_yaw_thresh_rad=approach_yaw_thresh_rad),
                              transitions={'approach_succeeded': 'COUPLE_TO_CART',
                                           'cart_not_found': 'GET_CART_POSE',
+                                          'cart_pose_publisher_not_available': 'failed',
                                           'timeout': 'GO_TO_PRE_DOCK_SETPOINT'})
 
             StateMachine.add('COUPLE_TO_CART', CoupleToCart(max_coupling_attempts=max_coupling_attempts),
