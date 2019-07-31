@@ -6,6 +6,8 @@ from geometry_msgs.msg import PoseStamped, PoseWithCovarianceStamped
 from maneuver_navigation.msg import Goal as ManeuverNavGoal
 from maneuver_navigation.msg import Feedback as ManeuverNavFeedback
 
+from cart_collection.cart_collection_utils import set_omni_drive_mode, reset_to_non_holonomic_mode
+
 class GoToPreDockSetpoint(smach.State):
     def __init__(self, timeout=60.0):
         smach.State.__init__(self, outcomes=['reached_setpoint',
@@ -36,12 +38,7 @@ class GoToPreDockSetpoint(smach.State):
             return 'timeout'
 
         # reconfigure to fine grained navigaiton
-        #os.system("rosrun dynamic_reconfigure dynparam set /maneuver_navigation/TebLocalPlannerROS max_vel_x 0.3 &");
-        #os.system("rosrun dynamic_reconfigure dynparam set /maneuver_navigation/TebLocalPlannerROS max_vel_theta 0.8 &");
-
-        os.system("rosrun dynamic_reconfigure dynparam set /maneuver_navigation/TebLocalPlannerROS max_vel_y 0.5 &")
-        os.system("rosrun dynamic_reconfigure dynparam set /maneuver_navigation/TebLocalPlannerROS weight_kinematics_nh 0 &")
-        os.system("rosrun dynamic_reconfigure dynparam set /maneuver_navigation/TebLocalPlannerROS weight_kinematics_forward_drive 0 &")
+        set_omni_drive_mode()
 
         # Send goal
         nav_goal = ManeuverNavGoal()
@@ -60,9 +57,12 @@ class GoToPreDockSetpoint(smach.State):
 
         if self.feedback is not None:
             if self.feedback.status == ManeuverNavFeedback.SUCCESS:
+                reset_to_non_holonomic_mode()
                 return 'reached_setpoint'
             if self.feedback.status == ManeuverNavFeedback.FAILURE_OBSTACLES:
+                reset_to_non_holonomic_mode()
                 return 'setpoint_unreachable'
+        reset_to_non_holonomic_mode()
         return 'timeout'
 
     def feedback_callback(self, msg):

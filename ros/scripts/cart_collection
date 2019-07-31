@@ -76,6 +76,7 @@ class CartCollectionSM(StateMachine):
         # couple to cart state params
         max_coupling_attempts = int(rospy.get_param('max_coupling_attempts', '3'))
 
+        post_dock_forward_distance_m = float(rospy.get_param('~post_dock_forward_distance_m', '0.2'))
 
         with self:
             StateMachine.add('GET_COLLECTION_GOAL', GetCartCollectionGoal(),
@@ -120,9 +121,11 @@ class CartCollectionSM(StateMachine):
                                           'coupling_failed': 'GO_TO_PRE_DOCK_SETPOINT',
                                           'cannot_switch_to_load_mode': 'SET_ACTION_FAILURE'})
 
-            StateMachine.add('GET_SETPOINT_IN_POST_DOCK_AREA', GetSetpointInPostDockArea(),
+            StateMachine.add('GET_SETPOINT_IN_POST_DOCK_AREA', GetSetpointInPostDockArea(distance_to_move=post_dock_forward_distance_m),
                              transitions={'setpoint_found': 'GO_TO_POST_DOCK_SETPOINT',
-                                          'setpoint_unreachable': 'SET_ACTION_SUCCESS'})
+                             # we consider the action a success even if it doesn't move forward post docking
+                                          'setpoint_unreachable': 'SET_ACTION_SUCCESS',
+                                          'timeout': 'SET_ACTION_SUCCESS'})
 
             StateMachine.add('GO_TO_POST_DOCK_SETPOINT', GoToPostDockSetpoint(),
                              transitions={'reached_setpoint': 'SET_ACTION_SUCCESS',

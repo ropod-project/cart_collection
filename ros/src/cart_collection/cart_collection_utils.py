@@ -1,6 +1,7 @@
 import math
 
 import rospy
+import dynamic_reconfigure.client
 from tf.transformations import euler_from_quaternion
 from geometry_msgs.msg import PoseStamped
 
@@ -12,7 +13,7 @@ def get_yaw_from_pose(pose):
 
 def get_setpoint_in_front_of_pose(pose, distance):
     if pose is None:
-        rospy.logerr("[cart_collector] Preconditon for get_setpoint_in_front_of_pose not met: Pose not found. Aborting.")
+        rospy.logerr("[cart_collector] Precondition for get_setpoint_in_front_of_pose not met: Pose not found. Aborting.")
         return None
 
     yaw = get_yaw_from_pose(pose)
@@ -30,3 +31,35 @@ def get_setpoint_in_front_of_pose(pose, distance):
     setpoint.pose.orientation = pose.pose.orientation
 
     return  setpoint
+
+def set_omni_drive_mode():
+    node_name = '/maneuver_navigation/TebLocalPlannerROS'
+    try:
+        client = dynamic_reconfigure.client.Client(node_name, timeout=1.5)
+    except Exception, e:
+       rospy.logerr("Service {0} does not exist".format(node_name + '/set_parameters'))
+       return False
+
+    params = {"max_vel_y" : 0.5,
+              "weight_kinematics_nh": 0,
+              "weight_kinematics_forward_drive": 0}
+    try:
+        config = client.update_configuration(params)
+    except Exception as e:
+        rospy.logerr("Failed to set dynamic reconfigure params for " + node_name)
+
+def reset_to_non_holonomic_mode():
+    node_name = '/maneuver_navigation/TebLocalPlannerROS'
+    try:
+        client = dynamic_reconfigure.client.Client(node_name, timeout=1.5)
+    except Exception, e:
+       rospy.logerr("Service {0} does not exist".format(node_name + '/set_parameters'))
+       return False
+
+    params = {"max_vel_y" : 0.0,
+              "weight_kinematics_nh": 1000,
+              "weight_kinematics_forward_drive": 1}
+    try:
+        config = client.update_configuration(params)
+    except Exception as e:
+        rospy.logerr("Failed to set dynamic reconfigure params for " + node_name)

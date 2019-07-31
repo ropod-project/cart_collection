@@ -15,6 +15,7 @@
         <!-- go to predock setpoint state params -->
         <remap from="nav_goal" to="/route_navigation/goal" />
         <remap from="nav_feedback" to="/route_navigation/feedback" />
+        <!-- also used in get post dock setpoint and go to post dock setpoint -->
         <remap from="localisation_pose" to="/amcl_pose" />
 
         <!-- align and approach cart state params -->
@@ -34,5 +35,9 @@
         <remap from="docking_feedback" to="/ropod/ropod_low_level_control/dockingFeedback" />
         <remap from="set_load_attached" to="/route_navigation/set_load_attached" />
         <param name="max_coupling_attempts" type="int" value="3" />
+
+        <!-- get setpoint in pose dock area state params-->
+        <remap from="cart_post_dock_pose" to="/cart_collection/cart_post_dock_pose" />
+        <param name="post_dock_forward_distance_m" type="double" value="0.2" />
     </node>
 </launch>
