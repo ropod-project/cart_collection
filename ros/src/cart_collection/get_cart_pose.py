@@ -9,7 +9,7 @@ class GetCartPose(smach.State):
     def __init__(self, timeout=5.0,
                  map_frame_name='map'):
         smach.State.__init__(self, outcomes=['cart_found', 'cart_not_found', 'timeout'],
-                             input_keys=['cart_area'],
+                             input_keys=['cart_sub_area'],
                              output_keys=['cart_pose'])
         self.get_objects_client = actionlib.SimpleActionClient("get_objects", GetObjectsAction)
         self.cart_pose_pub = rospy.Publisher("cart_pose", PoseStamped, queue_size=1)
@@ -22,7 +22,7 @@ class GetCartPose(smach.State):
             return 'timeout'
 
         goal = GetObjectsGoal()
-        goal.area_id = userdata.cart_area
+        goal.area_id = userdata.cart_sub_area
         goal.type = 'carts'
         self.get_objects_client.send_goal(goal)
         result = self.get_objects_client.wait_for_result(timeout=rospy.Duration(self.timeout))

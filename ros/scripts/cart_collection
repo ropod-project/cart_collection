@@ -1,158 +1,94 @@
 #!/usr/bin/python
+
 import rospy
-from smach import StateMachine
-from smach_ros import ActionServerWrapper
+import actionlib
 
-from ropod_ros_msgs.msg import DockAction
+from ropod_ros_msgs.msg import DockAction, DockFeedback, DockResult
+from ropod_ros_msgs.msg import Status
 
-from cart_collection.action_states import GetCartCollectionGoal, SetActionResult
-from cart_collection.get_cart_pose import GetCartPose
-from cart_collection.look_for_cart import LookForCart
-from cart_collection.get_cart_setpoint import GetSetpointInPreDockArea
-from cart_collection.go_to_predock_setpoint import GoToPreDockSetpoint
-from cart_collection.align_and_approach_cart import AlignAndApproachCart
-from cart_collection.couple_to_cart import CoupleToCart
-from cart_collection.get_setpoint_in_post_dock_area import GetSetpointInPostDockArea
-from cart_collection.go_to_post_dock_setpoint import GoToPostDockSetpoint
+from pyftsm.ftsm import FTSMStates, FTSMTransitions
+from ropod.ftsm.ftsm_base import FTSMBase, DependMonitorTypes
 
+from cart_collection.cart_collection_sm import CartCollectionSM
+from cart_drop_off.cart_drop_off_sm import CartDropOffSM
 
-class CartCollectionSM(StateMachine):
-    '''
-    Exposes a state machine for cart docking and undocking. The component subscribes to
-    two different action types:
-    * DOCK
-    * UNDOCK
-
-    The actions are exposed through a single action server.
-
-    The component expects several parameters to be made available to the ROS parameter server,
-    which are required by various docking and undocking states:
-
-    map_frame_name: str -- name of the world frame for global localisation (default map)
-
-    robot_length_m: float -- robot length in meters (default 0.73)
-    cart_length_m: float -- length of a cart in meters (default 0.81)
-    distance_to_cart_m: float -- used for calculating the predocking distance in front of a cart,
-                                 where the distance is calculated as follows
-                                 (robot_length_m + cart_length_m) / 2. + distance_to_cart_m
-                                 (default 1.0)
-
-    offset_to_approach_pose_m: float -- robot-cart offset in meters (default 0.55)
-    backward_vel_docking_ms: float -- maximum backward approach velocity in m/s (default 0.1)
-    max_rot_vel_docking_rads: float -- maximum rotational approach velocity in rad/s (default 0.1)
-    approach_x_thresh_m: float -- cart approach threshold along x in meters (default 0.05)
-    approach_y_thresh_m: float -- cart approach threshold along y in meters (default 0.05)
-    approach_yaw_thresh_rad: float -- cart approach threshold for the orientation
-                                      in rad/s (default 0.1)
-
-
-    max_coupling_attempts: int -- maximum number of cart coupling attempts before giving up (default 3)
-
-    @author Wouter Houtman, Santosh Thoduka, Sebastian Blumenthal
-    @contact w.houtman@tue.nl, santosh.thoduka@h-brs.de, blumenthal@locomotec.com
-
-    '''
+class CartCollection(FTSMBase):
     def __init__(self):
-        StateMachine.__init__(self, outcomes=['done', 'failed'],
-                              input_keys=['collect_cart_goal'],
-                              output_keys=['collect_cart_result'])
+        component_name = 'cart_collector'
+        dependencies = ['roscore', 'world_model_mediator', 'cart_plane_detector']
+        dependency_monitors = {'functional': {'roscore': 'ros/ros_master_monitor',
+                                              'world_model_mediator': 'ros/ros_node_monitor',
+                                              'cart_plane_detector': 'ros/ros_node_monitor'}}
+        super(CartCollection, self).__init__(component_name, dependencies, dependency_monitors)
+        self.current_action = None
 
-        # get cart pose state params
-        map_frame_name = rospy.get_param('~map_frame_name', 'map')
+    def init(self):
+        try:
+            rospy.loginfo('[cart_collection] Creating a "collect_cart" action server')
+            self.collect_cart_server = actionlib.SimpleActionServer("collect_cart",
+                                                            DockAction,
+                                                            self.collect_cart_server_cb, False)
+            self.collect_cart_server.start()
+        except Exception as exc:
+            rospy.logerr('[cart_collection] Initialisation error: "{0}"'.format(str(exc)))
+            return FTSMTransitions.INIT_FAILED
 
-        # get cart setpoint state params
-        robot_length_m = float(rospy.get_param('~robot_length_m', '0.73'))
-        cart_length_m = float(rospy.get_param('~cart_length_m', '0.81'))
-        distance_to_cart_m = float(rospy.get_param('~distance_to_cart_m', '1.0'))
+        return FTSMTransitions.INITIALISED
 
-        # align and approach cart state params
-        offset_to_approach_pose_m = float(rospy.get_param('~offset_to_approach_pose_m', '0.55'))
-        backward_vel_docking_ms = float(rospy.get_param('~backward_vel_docking_ms', '0.1'))
-        max_rot_vel_docking_rads = float(rospy.get_param('~max_rot_vel_docking_rads', '0.1'))
-        approach_x_thresh_m = float(rospy.get_param('~approach_x_thresh_m', '0.05'))
-        approach_y_thresh_m = float(rospy.get_param('~approach_y_thresh_m', '0.05'))
-        approach_yaw_thresh_rad = float(rospy.get_param('~approach_yaw_thresh_rad', '0.1'))
+    def ready(self):
+        if not self.current_action:
+            return FTSMTransitions.WAIT
+        return FTSMTransitions.RUN
 
-        # couple to cart state params
-        max_coupling_attempts = int(rospy.get_param('max_coupling_attempts', '3'))
+    def running(self):
+        if not self.current_action:
+            return FTSMTransitions.DONE
+        return FTSMTransitions.CONTINUE
 
-        post_dock_forward_distance_m = float(rospy.get_param('~post_dock_forward_distance_m', '0.2'))
+    def recovering(self):
+        return FTSMTransitions.DONE_RECOVERING
 
-        with self:
-            StateMachine.add('GET_COLLECTION_GOAL', GetCartCollectionGoal(),
-                             transitions={'dock': 'GET_CART_POSE',
-                                          'undock': 'GET_CART_POSE', # TODO: add undocking states
-                                          'invalid_goal': 'SET_ACTION_FAILURE'})
+    def collect_cart_server_cb(self, action_request):
+        action_type = action_request.action.type
+        if action_type != 'DOCK' and action_type != 'UNDOCK':
+            rospy.logerr('[cart_collection] Unknown action "{0}" received; ignoring request'.format(action_type))
+            self.collect_cart_server.set_aborted()
+            return
+        if (len(action_request.action.areas) == 0 or
+            len(action_request.action.areas[0].sub_areas) == 0):
+            rospy.logerr('[cart_collection] A sub_area has to be specified for (un)docking; aborting request')
+            self.collect_cart_server.set_aborted()
+            return
 
-            StateMachine.add('GET_CART_POSE', GetCartPose(map_frame_name=map_frame_name),
-                             transitions={'cart_found': 'GET_SETPOINT_IN_PRE_DOCK_AREA',
-                                          'cart_not_found': 'LOOK_FOR_CART',
-                                          'timeout': 'SET_ACTION_FAILURE'})
+        # setting self.current_action allows to
+        # transition to the running state
+        self.current_action = action_request.action
 
-            StateMachine.add('LOOK_FOR_CART', LookForCart(),
-                             transitions={'cart_found': 'GET_SETPOINT_IN_PRE_DOCK_AREA',
-                                          'cart_not_found': 'SET_ACTION_FAILURE',
-                                          'timeout': 'SET_ACTION_FAILURE'})
+        if (action_type == 'DOCK'):
+            sm = CartCollectionSM(cart_sub_area=action_request.action.areas[0].sub_areas[0].id)
+        elif (action_type == 'UNDOCK'):
+            sm = CartDropOffSM(cart_sub_area=action_request.action.areas[0].sub_areas[0].id)
 
-            StateMachine.add('GET_SETPOINT_IN_PRE_DOCK_AREA', GetSetpointInPreDockArea(robot_length_m=robot_length_m,
-                                                                                       cart_length_m=cart_length_m,
-                                                                                       distance_to_cart_m=distance_to_cart_m),
-                             transitions={'setpoint_found': 'GO_TO_PRE_DOCK_SETPOINT',
-                                          'setpoint_unreachable': 'SET_ACTION_FAILURE'})
+        res = sm.execute()
+        result = DockResult()
+        if (res == 'failed'):
+            result.success = False
+            self.collect_cart_server.set_succeeded(result=result)
+        else:
+            result.success = True
+            self.collect_cart_server.set_succeeded(result=result)
 
-            StateMachine.add('GO_TO_PRE_DOCK_SETPOINT', GoToPreDockSetpoint(),
-                             transitions={'reached_setpoint': 'ALIGN_AND_APPROACH_CART',
-                                          'setpoint_unreachable': 'SET_ACTION_FAILURE',
-                                          'timeout': 'SET_ACTION_FAILURE'})
-
-            StateMachine.add('ALIGN_AND_APPROACH_CART', AlignAndApproachCart(offset_to_approach_pose_m=offset_to_approach_pose_m,
-                                                                             backward_vel_docking_ms=backward_vel_docking_ms,
-                                                                             max_rot_vel_docking_rads=max_rot_vel_docking_rads,
-                                                                             approach_x_thresh_m=approach_x_thresh_m,
-                                                                             approach_y_thresh_m=approach_y_thresh_m,
-                                                                             approach_yaw_thresh_rad=approach_yaw_thresh_rad),
-                             transitions={'approach_succeeded': 'COUPLE_TO_CART',
-                                          'cart_not_found': 'GET_CART_POSE',
-                                          'cart_pose_publisher_not_available': 'failed',
-                                          'timeout': 'GO_TO_PRE_DOCK_SETPOINT'})
-
-            StateMachine.add('COUPLE_TO_CART', CoupleToCart(max_coupling_attempts=max_coupling_attempts),
-                             transitions={'coupling_succeeded': 'GET_SETPOINT_IN_POST_DOCK_AREA',
-                                          'coupling_failed': 'GO_TO_PRE_DOCK_SETPOINT',
-                                          'cannot_switch_to_load_mode': 'SET_ACTION_FAILURE'})
-
-            StateMachine.add('GET_SETPOINT_IN_POST_DOCK_AREA', GetSetpointInPostDockArea(distance_to_move=post_dock_forward_distance_m),
-                             transitions={'setpoint_found': 'GO_TO_POST_DOCK_SETPOINT',
-                             # we consider the action a success even if it doesn't move forward post docking
-                                          'setpoint_unreachable': 'SET_ACTION_SUCCESS',
-                                          'timeout': 'SET_ACTION_SUCCESS'})
-
-            StateMachine.add('GO_TO_POST_DOCK_SETPOINT', GoToPostDockSetpoint(),
-                             transitions={'reached_setpoint': 'SET_ACTION_SUCCESS',
-                                          'setpoint_unreachable': 'SET_ACTION_SUCCESS',
-                                          'timeout': 'SET_ACTION_SUCCESS'})
-
-            StateMachine.add('SET_ACTION_SUCCESS', SetActionResult(True),
-                             transitions={'done': 'done'})
-
-            StateMachine.add('SET_ACTION_FAILURE', SetActionResult(False),
-                             transitions={'done': 'failed'})
 
 def main():
     rospy.init_node('cart_collection')
+    cart_collection = CartCollection()
+    try:
+        cart_collection.run()
+        while cart_collection.is_running and not rospy.is_shutdown():
+            rospy.sleep(0.1)
+    except (KeyboardInterrupt, SystemExit):
+        rospy.loginfo('{0} interrupted exiting...'.format(cart_collection.name))
+        cart_collection.stop()
 
-    docking_sm = CartCollectionSM()
-    action = ActionServerWrapper(
-        server_name='collect_cart',
-        action_spec=DockAction,
-        wrapped_container=docking_sm,
-        succeeded_outcomes=['done'],
-        aborted_outcomes=['failed'],
-        goal_key='collect_cart_goal',
-        result_key='collect_cart_result')
-
-    action.run_server()
-    rospy.spin()
-
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

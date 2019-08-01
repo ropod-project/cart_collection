@@ -36,8 +36,14 @@
         <remap from="set_load_attached" to="/route_navigation/set_load_attached" />
         <param name="max_coupling_attempts" type="int" value="3" />
 
-        <!-- get setpoint in pose dock area state params-->
+        <!-- get setpoint in post dock area state params-->
         <remap from="cart_post_dock_pose" to="/cart_collection/cart_post_dock_pose" />
         <param name="post_dock_forward_distance_m" type="double" value="0.2" />
+
+        <!-- get setpoint in pre undock area state params-->
+        <remap from="cart_pre_undock_pose" to="/cart_collection/cart_pre_undock_pose" />
+
+        <!-- get setpoint in post undock area state params-->
+        <remap from="cart_post_undock_pose" to="/cart_collection/cart_post_undock_pose" />
     </node>
 </launch>
