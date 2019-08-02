@@ -38,7 +38,7 @@
 
         <!-- get setpoint in post dock area state params-->
         <remap from="cart_post_dock_pose" to="/cart_collection/cart_post_dock_pose" />
-        <param name="post_dock_forward_distance_m" type="double" value="0.2" />
+        <param name="post_dock_forward_distance_m" type="double" value="0.1" />
 
         <!-- get setpoint in pre undock area state params-->
         <remap from="cart_pre_undock_pose" to="/cart_collection/cart_pre_undock_pose" />

@@ -13,6 +13,9 @@ class GoToPostUndockSetpoint(smach.State):
                                              'setpoint_unreachable',
                                              'timeout'],
                              input_keys=['post_undock_setpoint'])
+        self.timeout = rospy.Duration.from_sec(timeout)
+        self.feedback = None
+        self.robot_pose = None
         self.nav_goal_pub = rospy.Publisher("nav_goal",
                                             ManeuverNavGoal,
                                             queue_size=1)
@@ -22,9 +25,6 @@ class GoToPostUndockSetpoint(smach.State):
         self.robot_pose_sub = rospy.Subscriber("localisation_pose",
                                                PoseWithCovarianceStamped,
                                                self.robot_pose_callback)
-        self.timeout = rospy.Duration.from_sec(timeout)
-        self.feedback = None
-        self.robot_pose = None
 
     def execute(self, userdata):
         # Get ropot pose

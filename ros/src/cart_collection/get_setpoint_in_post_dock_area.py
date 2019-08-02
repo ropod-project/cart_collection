@@ -12,14 +12,14 @@ class GetSetpointInPostDockArea(smach.State):
                                              'timeout'],
                              output_keys=['post_dock_setpoint'])
         self.timeout = rospy.Duration.from_sec(timeout)
+        self.robot_pose = None
+        self.distance_to_move = distance_to_move
         self.cart_postdock_pose_pub = rospy.Publisher("cart_postdock_pose",
                                                 PoseStamped,
                                                 queue_size=1)
         self.robot_pose_sub = rospy.Subscriber("localisation_pose",
                                                PoseWithCovarianceStamped,
                                                self.robot_pose_callback)
-        self.robot_pose = None
-        self.distance_to_move = distance_to_move
 
     def execute(self, userdata):
         start_time = rospy.Time.now()
