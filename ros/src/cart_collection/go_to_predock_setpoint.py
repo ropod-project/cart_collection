@@ -6,7 +6,7 @@ from geometry_msgs.msg import PoseStamped, PoseWithCovarianceStamped
 from maneuver_navigation.msg import Goal as ManeuverNavGoal
 from maneuver_navigation.msg import Feedback as ManeuverNavFeedback
 
-from cart_collection.cart_collection_utils import set_omni_drive_mode, reset_to_non_holonomic_mode
+from cart_collection.cart_collection_utils import set_dynamic_navigation_params
 
 class GoToPreDockSetpoint(smach.State):
     def __init__(self, timeout=60.0):
@@ -38,7 +38,7 @@ class GoToPreDockSetpoint(smach.State):
             return 'timeout'
 
         # reconfigure to fine grained navigaiton
-        set_omni_drive_mode()
+        set_dynamic_navigation_params('omni_drive_mode')
 
         # Send goal
         nav_goal = ManeuverNavGoal()
@@ -57,12 +57,12 @@ class GoToPreDockSetpoint(smach.State):
 
         if self.feedback is not None:
             if self.feedback.status == ManeuverNavFeedback.SUCCESS:
-                reset_to_non_holonomic_mode()
+                set_dynamic_navigation_params('non_holonomic_mode')
                 return 'reached_setpoint'
             if self.feedback.status == ManeuverNavFeedback.FAILURE_OBSTACLES:
-                reset_to_non_holonomic_mode()
+                set_dynamic_navigation_params('non_holonomic_mode')
                 return 'setpoint_unreachable'
-        reset_to_non_holonomic_mode()
+        set_dynamic_navigation_params('non_holonomic_mode')
         return 'timeout'
 
     def feedback_callback(self, msg):

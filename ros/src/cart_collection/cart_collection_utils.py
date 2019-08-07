@@ -1,5 +1,6 @@
 import math
 import numpy as np
+import yaml
 
 import rospy
 import dynamic_reconfigure.client
@@ -34,7 +35,7 @@ def get_setpoint_in_front_of_pose(pose, distance):
 
     return setpoint
 
-def set_omni_drive_mode():
+def set_dynamic_navigation_params(param_type):
     node_name = '/maneuver_navigation/TebLocalPlannerROS'
     try:
         client = dynamic_reconfigure.client.Client(node_name, timeout=1.5)
@@ -42,29 +43,11 @@ def set_omni_drive_mode():
        rospy.logerr("Service {0} does not exist".format(node_name + '/set_parameters'))
        return False
 
-    # TODO: these parameters need to be read from the launch file
-    params = {"max_vel_y" : 0.5,
-              "weight_kinematics_nh": 0,
-              "weight_kinematics_forward_drive": 0}
-    try:
-        config = client.update_configuration(params)
-    except Exception as e:
-        rospy.logerr("Failed to set dynamic reconfigure params for " + node_name)
+    params_file = rospy.get_param('~dynamic_navigation_params', 'ros/config/dynamic_navigation_params.yaml')
+    params = yaml.load(open(params_file))
 
-def reset_to_non_holonomic_mode():
-    node_name = '/maneuver_navigation/TebLocalPlannerROS'
     try:
-        client = dynamic_reconfigure.client.Client(node_name, timeout=1.5)
-    except Exception, e:
-       rospy.logerr("Service {0} does not exist".format(node_name + '/set_parameters'))
-       return False
-
-    # TODO: these parameters need to be read from the launch file
-    params = {"max_vel_y" : 0.0,
-              "weight_kinematics_nh": 1000,
-              "weight_kinematics_forward_drive": 1}
-    try:
-        config = client.update_configuration(params)
+        config = client.update_configuration(params[param_type])
     except Exception as e:
         rospy.logerr("Failed to set dynamic reconfigure params for " + node_name)
 
@@ -171,4 +154,34 @@ def get_pose_perpendicular_to_edge(shape, input_pose):
     # the one closest to the normal of edge
     output_pose = get_pose_closest_to_normal(input_pose, edge_normal)
 
+    return output_pose
+
+def get_pose_perpendicular_to_longest_edge(shape, offset_from_edge):
+    max_length = 0.0
+    longest_edge_idx = 0
+    for idx, v in enumerate(shape.vertices[:-1]): # last and first vertex are the same
+        v2 = shape.vertices[idx+1]
+        length = np.sqrt((v2.y - v.y)**2 + (v2.x - v.x)**2)
+        if length > max_length:
+            max_length = length
+            longest_edge_idx = idx
+    v1 = shape.vertices[longest_edge_idx]
+    v2 = shape.vertices[longest_edge_idx + 1]
+
+    pose = PoseStamped()
+    pose.pose.position.x = (v1.x + v2.x) / 2.0
+    pose.pose.position.y = (v1.y + v2.y) / 2.0
+    # we get the yaw perpendicular to the edge
+    # hence, x and y are swapped when calculating the arctan
+    yaw = np.arctan2((v1.x - v2.x), (v1.y - v2.y))
+    q = quaternion_from_euler(0.0, 0.0, yaw)
+    pose.pose.orientation.x = q[0]
+    pose.pose.orientation.x = q[1]
+    pose.pose.orientation.x = q[2]
+    pose.pose.orientation.x = q[3]
+
+    output_pose = get_pose_perpendicular_to_edge(shape, pose)
+    yaw = get_yaw_from_pose(output_pose)
+    output_pose.pose.position.x += (offset_from_edge * np.cos(yaw))
+    output_pose.pose.position.y += (offset_from_edge * np.sin(yaw))
     return output_pose

@@ -5,8 +5,6 @@ from geometry_msgs.msg import PoseStamped, PoseWithCovarianceStamped
 from maneuver_navigation.msg import Goal as ManeuverNavGoal
 from maneuver_navigation.msg import Feedback as ManeuverNavFeedback
 
-from cart_collection.cart_collection_utils import set_omni_drive_mode, reset_to_non_holonomic_mode
-
 class GoToPostUndockSetpoint(smach.State):
     def __init__(self, timeout=5.0):
         smach.State.__init__(self, outcomes=['reached_setpoint',
@@ -37,7 +35,6 @@ class GoToPostUndockSetpoint(smach.State):
             return 'timeout'
 
 
-        set_omni_drive_mode()
         # Send goal
         nav_goal = ManeuverNavGoal()
         nav_goal.conf.precise_goal = True
@@ -55,12 +52,9 @@ class GoToPostUndockSetpoint(smach.State):
 
         if self.feedback is not None:
             if self.feedback.status == ManeuverNavFeedback.SUCCESS:
-                reset_to_non_holonomic_mode()
                 return 'reached_setpoint'
             if self.feedback.status == ManeuverNavFeedback.FAILURE_OBSTACLES:
-                reset_to_non_holonomic_mode()
                 return 'setpoint_unreachable'
-        reset_to_non_holonomic_mode()
         return 'timeout'
 
     def feedback_callback(self, msg):

@@ -1,6 +1,7 @@
 <?xml version="1.0"?>
 <launch>
     <node name="cart_collection" pkg="cart_collection" type="cart_collection" output="screen">
+        <param name="dynamic_navigation_params" type="str" value="$(find cart_collection)/ros/config/dynamic_navigation_params.yaml" />
         <!-- get cart pose state params -->
         <param name="map_frame_name" type="str" value="map" />
         <remap from="get_objects" to="/get_objects" />
@@ -42,6 +43,7 @@
 
         <!-- get setpoint in pre undock area state params-->
         <remap from="cart_pre_undock_pose" to="/cart_collection/cart_pre_undock_pose" />
+        <param name="preundock_offset_m" type="double" value="0.4" />
 
         <!-- get setpoint in post undock area state params-->
         <remap from="cart_post_undock_pose" to="/cart_collection/cart_post_undock_pose" />

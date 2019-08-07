@@ -5,10 +5,10 @@ from geometry_msgs.msg import PoseStamped, PoseWithCovarianceStamped
 from maneuver_navigation.msg import Goal as ManeuverNavGoal
 from maneuver_navigation.msg import Feedback as ManeuverNavFeedback
 
-from cart_collection.cart_collection_utils import set_omni_drive_mode, reset_to_non_holonomic_mode
+from cart_collection.cart_collection_utils import set_dynamic_navigation_params
 
 class GoToPreUndockSetpoint(smach.State):
-    def __init__(self, timeout=5.0):
+    def __init__(self, timeout=60.0):
         smach.State.__init__(self, outcomes=['reached_setpoint',
                                              'setpoint_unreachable',
                                              'timeout'],
@@ -37,7 +37,7 @@ class GoToPreUndockSetpoint(smach.State):
             return 'timeout'
 
 
-        set_omni_drive_mode()
+        set_dynamic_navigation_params('undocking_speed')
         # Send goal
         nav_goal = ManeuverNavGoal()
         nav_goal.conf.precise_goal = True
@@ -55,12 +55,12 @@ class GoToPreUndockSetpoint(smach.State):
 
         if self.feedback is not None:
             if self.feedback.status == ManeuverNavFeedback.SUCCESS:
-                reset_to_non_holonomic_mode()
+                set_dynamic_navigation_params('normal_speed')
                 return 'reached_setpoint'
             if self.feedback.status == ManeuverNavFeedback.FAILURE_OBSTACLES:
-                reset_to_non_holonomic_mode()
+                set_dynamic_navigation_params('normal_speed')
                 return 'setpoint_unreachable'
-        reset_to_non_holonomic_mode()
+        set_dynamic_navigation_params('normal_speed')
         return 'timeout'
 
     def feedback_callback(self, msg):
