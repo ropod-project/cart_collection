@@ -10,7 +10,7 @@ non_holonomic_mode:
     weight_kinematics_forward_drive: 1
 undocking_speed:
     max_vel_x: 0.3
-    max_vel_theta: 0.8 # TODO: not sure why this is larger than normal speed
+    max_vel_theta: 0.3
     max_vel_x_backwards: 0.3
 normal_speed:
     max_vel_x: 0.5

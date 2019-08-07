@@ -43,9 +43,14 @@
 
         <!-- get setpoint in pre undock area state params-->
         <remap from="cart_pre_undock_pose" to="/cart_collection/cart_pre_undock_pose" />
-        <param name="preundock_offset_m" type="double" value="0.4" />
+        <!-- offset (in m) of load/base_link from the wall -->
+        <param name="preundock_offset_m" type="double" value="0.5" />
+        <!-- offset (in m) of load/base_link from the wall -->
+        <param name="undock_offset_m" type="double" value="0.2" />
+        <remap from="cart_undock_pose" to="/cart_collection/cart_undock_pose" />
 
         <!-- get setpoint in post undock area state params-->
         <remap from="cart_post_undock_pose" to="/cart_collection/cart_post_undock_pose" />
+        <param name="post_undock_forward_distance_m" type="double" value="0.7" />
     </node>
 </launch>

@@ -8,7 +8,7 @@ from maneuver_navigation.msg import Feedback as ManeuverNavFeedback
 from cart_collection.cart_collection_utils import set_dynamic_navigation_params
 
 class GoToPreUndockSetpoint(smach.State):
-    def __init__(self, timeout=60.0):
+    def __init__(self, timeout=120.0):
         smach.State.__init__(self, outcomes=['reached_setpoint',
                                              'setpoint_unreachable',
                                              'timeout'],

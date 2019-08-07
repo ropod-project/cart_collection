@@ -5,13 +5,20 @@ from geometry_msgs.msg import PoseStamped, PoseWithCovarianceStamped
 from maneuver_navigation.msg import Goal as ManeuverNavGoal
 from maneuver_navigation.msg import Feedback as ManeuverNavFeedback
 
+from cart_collection.cart_collection_utils import set_dynamic_navigation_params
+
 
 class GoToUndockSetpoint(smach.State):
-    def __init__(self, timeout=5.0):
+    def __init__(self, timeout=15.0,
+                 preundock_offset_m=0.5,
+                 undock_offset_m=0.2):
         smach.State.__init__(self, outcomes=['reached_setpoint',
                                              'setpoint_unreachable',
                                              'timeout'],
-                             input_keys=['undock_setpoint'])
+                            input_keys=['undock_setpoint'])
+        self.timeout = rospy.Duration.from_sec(timeout)
+        self.feedback = None
+        self.robot_pose = None
         self.nav_goal_pub = rospy.Publisher("nav_goal",
                                             ManeuverNavGoal,
                                             queue_size=1)
@@ -21,12 +28,9 @@ class GoToUndockSetpoint(smach.State):
         self.robot_pose_sub = rospy.Subscriber("localisation_pose",
                                                PoseWithCovarianceStamped,
                                                self.robot_pose_callback)
-        self.timeout = rospy.Duration.from_sec(timeout)
-        self.feedback = None
-        self.robot_pose = None
 
     def execute(self, userdata):
-        # Get ropot pose
+        # Get robot pose
         start_time = rospy.Time.now()
         while (rospy.Time.now() - start_time) <= self.timeout and self.robot_pose is None:
             rospy.sleep(0.1)
@@ -35,7 +39,7 @@ class GoToUndockSetpoint(smach.State):
             rospy.logerr("[cart_collector] Precondition for GoToUndockSetpoint not met: Robot pose not available. Aborting.")
             return 'timeout'
 
-
+        set_dynamic_navigation_params('undocking_speed')
         # Send goal
         nav_goal = ManeuverNavGoal()
         nav_goal.conf.precise_goal = True
@@ -53,9 +57,13 @@ class GoToUndockSetpoint(smach.State):
 
         if self.feedback is not None:
             if self.feedback.status == ManeuverNavFeedback.SUCCESS:
+                set_dynamic_navigation_params('normal_speed')
                 return 'reached_setpoint'
             if self.feedback.status == ManeuverNavFeedback.FAILURE_OBSTACLES:
+                set_dynamic_navigation_params('normal_speed')
                 return 'setpoint_unreachable'
+        set_dynamic_navigation_params('normal_speed')
+
         return 'timeout'
 
     def feedback_callback(self, msg):
