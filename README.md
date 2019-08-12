@@ -23,6 +23,7 @@ The cart collection depends on the following other components:
 
 The component expects several parameters and topic remappings to be specified in the launch file, which are required by various docking and undocking states:
 
+* `dynamic_navigation_params: str` -- file containing sets of dynamic reconfigure parameters for navigation (default `ros/config/dynamic_navigation_params.yaml`)
 * `map_frame_name: str` -- name of the world frame for global localisation (default `map`)
 * `get_objects: topic` -- name of an action server for querying world entities (default `/get_objects`)
 * `cart_pose: topic` -- name of a topic for publishing the pose of a cart selected for docking (default `/cart_collection/selected_cart_pose`)
