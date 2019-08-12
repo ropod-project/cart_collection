@@ -13,15 +13,10 @@ from cart_collection.go_to_post_dock_setpoint import GoToPostDockSetpoint
 
 class CartCollectionSM(StateMachine):
     '''
-    Exposes a state machine for cart docking and undocking. The component subscribes to
-    two different action types:
-    * DOCK
-    * UNDOCK
+    Exposes a state machine for cart docking.
 
-    The actions are exposed through a single action server.
-
-    The component expects several parameters to be made available to the ROS parameter server,
-    which are required by various docking and undocking states:
+    The state machine expects several parameters to be made available to the ROS parameter server,
+    which are required by various docking states:
 
     map_frame_name: str -- name of the world frame for global localisation (default map)
 
@@ -42,6 +37,8 @@ class CartCollectionSM(StateMachine):
 
 
     max_coupling_attempts: int -- maximum number of cart coupling attempts before giving up (default 3)
+
+    post_dock_forward_distance_m: float -- distance to move forward after docking in meters (default 0.2)
 
     @author Wouter Houtman, Santosh Thoduka, Sebastian Blumenthal
     @contact w.houtman@tue.nl, santosh.thoduka@h-brs.de, blumenthal@locomotec.com
@@ -69,6 +66,7 @@ class CartCollectionSM(StateMachine):
         # couple to cart state params
         max_coupling_attempts = int(rospy.get_param('max_coupling_attempts', '3'))
 
+        # post dock params
         post_dock_forward_distance_m = float(rospy.get_param('~post_dock_forward_distance_m', '0.2'))
 
         self.userdata.cart_pose = None
@@ -80,11 +78,6 @@ class CartCollectionSM(StateMachine):
             StateMachine.add('GET_CART_POSE', GetCartPose(map_frame_name=map_frame_name),
                              transitions={'cart_found': 'GET_SETPOINT_IN_PRE_DOCK_AREA',
                                           'cart_not_found': 'LOOK_FOR_CART',
-                                          'timeout': 'failed'})
-
-            StateMachine.add('LOOK_FOR_CART', LookForCart(),
-                             transitions={'cart_found': 'GET_SETPOINT_IN_PRE_DOCK_AREA',
-                                          'cart_not_found': 'failed',
                                           'timeout': 'failed'})
 
             StateMachine.add('GET_SETPOINT_IN_PRE_DOCK_AREA', GetSetpointInPreDockArea(robot_length_m=robot_length_m,
@@ -124,3 +117,11 @@ class CartCollectionSM(StateMachine):
                              transitions={'reached_setpoint': 'done',
                                           'setpoint_unreachable': 'done',
                                           'timeout': 'done'})
+            #############################################################################################################
+            ## Non-nominal states; i.e. states to execute when the nominal execution fails
+
+            StateMachine.add('LOOK_FOR_CART', LookForCart(),
+                             transitions={'cart_found': 'GET_SETPOINT_IN_PRE_DOCK_AREA',
+                                          'cart_not_found': 'failed',
+                                          'timeout': 'failed'})
+

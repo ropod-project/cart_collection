@@ -8,13 +8,28 @@ from tf.transformations import euler_from_quaternion, quaternion_from_euler
 from geometry_msgs.msg import PoseStamped
 import ropod_ros_msgs.msg
 
+
 def get_yaw_from_pose(pose):
+    '''
+    Returns yaw (in radians) of the input pose
+
+    args:
+    pose: geometry_msgs.msg.PoseStamped -- input pose
+    '''
     orientation_q = pose.pose.orientation
     orientation_list = [orientation_q.x, orientation_q.y, orientation_q.z, orientation_q.w]
     _, _, yaw = euler_from_quaternion(orientation_list)
     return yaw
 
+
 def get_setpoint_in_front_of_pose(pose, distance):
+    '''
+    Returns a pose offset by `distance` from the input pose
+
+    args:
+    pose: geometry_msgs.msg.PoseStamped -- input pose
+    distance: float -- distance (in meters) to offset input pose
+    '''
     if pose is None:
         rospy.logerr("[cart_collector] Precondition for get_setpoint_in_front_of_pose not met: Pose not found. Aborting.")
         return None
@@ -35,39 +50,74 @@ def get_setpoint_in_front_of_pose(pose, distance):
 
     return setpoint
 
+
 def set_dynamic_navigation_params(param_type):
+    '''
+    Sets a list of dynamic reconfigure parameters defined by the string `param_type`
+
+    args:
+    param_type: str -- name of list of parameters specified in the `dynamic_navigation_params` file
+
+    '''
     node_name = '/maneuver_navigation/TebLocalPlannerROS'
     try:
         client = dynamic_reconfigure.client.Client(node_name, timeout=1.5)
-    except Exception, e:
-       rospy.logerr("Service {0} does not exist".format(node_name + '/set_parameters'))
-       return False
+    except Exception as e:
+        rospy.logerr("Service {0} does not exist".format(node_name + '/set_parameters'))
+        return False
 
     params_file = rospy.get_param('~dynamic_navigation_params', 'ros/config/dynamic_navigation_params.yaml')
     params = yaml.load(open(params_file))
 
     try:
-        config = client.update_configuration(params[param_type])
+        client.update_configuration(params[param_type])
     except Exception as e:
         rospy.logerr("Failed to set dynamic reconfigure params for " + node_name)
+        rospy.logerr(e.message())
+
 
 def get_distance_to_line(p1, p2, tp):
+    '''
+    Returns the distance of point `tp` from the line defined by `p1` and `p2`
+
+    args:
+    p1: ropod_ros_msgs.msg.Position -- point 1 of the line
+    p2: ropod_ros_msgs.msg.Position -- point 2 of the line
+    tp: ropod_ros_msgs.msg.Position -- test point whose distance from p1-p2 is required
+    '''
     # https://en.wikipedia.org/wiki/Distance_from_a_point_to_a_line
     numerator = np.abs((p2.y - p1.y) * tp.x - (p2.x - p1.x) * tp.y + p2.x*p1.y - p2.y*p1.x)
-    denominator  = np.sqrt((p2.y - p1.y)**2 + (p2.x - p1.x)**2)
+    denominator = np.sqrt((p2.y - p1.y)**2 + (p2.x - p1.x)**2)
     return numerator / denominator
 
 
 def does_point_intersect_segment_on_right(point, segment_p1, segment_p2):
+    '''
+    Returns True if `point` intersects the line segment defined by `segment_p1` and `segment_p2` on it's right side
+
+    args:
+    point: ropod_ros_msgs.msg.Position -- test point
+    segment_p1: ropod_ros_msgs.msg.Position -- point 1 of the line segment
+    segment_p2: ropod_ros_msgs.msg.Position -- point 2 of the line segment
+    '''
     # find intersection point and check if t.x is to the left
 
     # t.x < p1.x + ((p1.x - p1.x)*(t.y - p1.y) / (p2.y - p1.y)
     return (point.x <
             segment_p1.x +
             ((segment_p2.x - segment_p1.x) * (point.y - segment_p1.y) /
-            (segment_p2.y - segment_p1.y)))
+             (segment_p2.y - segment_p1.y)))
+
 
 def is_point_between_points_in_y(point, segment_p1, segment_p2):
+    '''
+    Returns True if the y-coordinate of `point` is between the y-coordinates of `segment_p1` and `segment_p2`
+
+    args:
+    point: ropod_ros_msgs.msg.Position -- test point
+    segment_p1: ropod_ros_msgs.msg.Position -- point 1 of the line segment
+    segment_p2: ropod_ros_msgs.msg.Position -- point 2 of the line segment
+    '''
     # check if the sign of the difference between the y coordinates of the points is different
     sign1 = math.copysign(1.0, point.y - segment_p1.y)
     sign2 = math.copysign(1.0, point.y - segment_p2.y)
@@ -75,9 +125,18 @@ def is_point_between_points_in_y(point, segment_p1, segment_p2):
         return False
     return True
 
+
 def is_point_in_polygon(point, polygon):
+    '''
+    Returns True if `point` is contained within the `polygon`
+
+    args:
+    point: ropod_ros_msgs.msg.Position -- test point
+    polygon: list of ropod_ros_msgs.msg.Position -- polygon defined as a list of points; the first and last point are identical
+    '''
     # Based on algorithm here:
     # http://www.eecs.umich.edu/courses/eecs380/HANDOUTS/PROJ2/InsidePoly.html
+    # https://stackoverflow.com/questions/8721406/how-to-determine-if-a-point-is-inside-a-2d-convex-polygon
     #
     # If a horizontal ray from the test point to the right intersects with
     # each segment of the polygon an even number of times, it is not in the polygon
@@ -85,13 +144,24 @@ def is_point_in_polygon(point, polygon):
     num_intersections = 0
     for idx, p in enumerate(polygon[:-1]):
         if (is_point_between_points_in_y(point, p, polygon[idx+1]) and
-            does_point_intersect_segment_on_right(point, p, polygon[idx+1])):
+                does_point_intersect_segment_on_right(point, p, polygon[idx+1])):
             num_intersections += 1
     if num_intersections % 2 == 0:
         return False
     return True
 
+
 def get_pose_closest_to_normal(input_pose, edge_normal):
+    '''
+    Returns a pose with the same position as `input_pose` but whose orientation best aligns with the `edge_normal`
+
+    The best alignment is based on checking the angular difference between the normal and four angles
+    spaced 90 degrees apart including the orientation of `input_pose`
+
+    args:
+    input_pose: geometry_msgs.msg.PoseStamped -- input pose
+    edge_normal: float -- angle (in radian) of the normal of an edge / line segment
+    '''
     pose_yaw = get_yaw_from_pose(input_pose)
     quadrants = [pose_yaw, pose_yaw + np.pi/2.0, pose_yaw - np.pi/2.0, pose_yaw + np.pi]
     min_angle = 1000.0
@@ -112,13 +182,23 @@ def get_pose_closest_to_normal(input_pose, edge_normal):
     output_pose.pose.orientation.w = q[3]
     return output_pose
 
+
 def get_pose_perpendicular_to_edge(shape, input_pose):
+    '''
+    Returns a pose with the same position as `input_pose` but whose orientation best aligns with the normal
+    of the edge of `shape` which is closest to `input_pose`. The orientation of the output pose will face
+    the inside of the polygon defined by `shape`.
+
+    args:
+    shape: list of ropod_ros_msgs.msg.Position -- polygon defined by list of points
+    input_pose: geometry_msgs.msg.PoseStamped -- input pose
+    '''
     closest_edge_idx = 0
-    min_dist = 1000.0;
+    min_dist = 1000.0
     input_point = ropod_ros_msgs.msg.Position()
     input_point.x = input_pose.pose.position.x
     input_point.y = input_pose.pose.position.y
-    for idx, v in enumerate(shape.vertices[:-1]): # last and first vertex are the same
+    for idx, v in enumerate(shape.vertices[:-1]):  # last and first vertex are the same
         dist = get_distance_to_line(v, shape.vertices[idx+1], input_point)
         if dist < min_dist:
             min_dist = dist
@@ -156,10 +236,21 @@ def get_pose_perpendicular_to_edge(shape, input_pose):
 
     return output_pose
 
+
 def get_pose_perpendicular_to_longest_edge(shape, offset_from_edge):
+    '''
+    Returns a pose whose orientation best aligns with the normal
+    of the longest edge of `shape` with the position offset from the edge by `offset_from_edge`.
+    The orientation of the output pose will face the inside of the polygon defined by `shape`.
+
+    args:
+    shape: list of ropod_ros_msgs.msg.Position -- polygon defined by list of points
+    offset_from_edge: float -- offset (in meters) of the pose from the longest edge of the shape
+
+    '''
     max_length = 0.0
     longest_edge_idx = 0
-    for idx, v in enumerate(shape.vertices[:-1]): # last and first vertex are the same
+    for idx, v in enumerate(shape.vertices[:-1]):  # last and first vertex are the same
         v2 = shape.vertices[idx+1]
         length = np.sqrt((v2.y - v.y)**2 + (v2.x - v.x)**2)
         if length > max_length:
@@ -171,7 +262,7 @@ def get_pose_perpendicular_to_longest_edge(shape, offset_from_edge):
     pose = PoseStamped()
     pose.pose.position.x = (v1.x + v2.x) / 2.0
     pose.pose.position.y = (v1.y + v2.y) / 2.0
-    # we get the yaw perpendicular to the edge
+    # we need the yaw perpendicular to the edge
     # hence, x and y are swapped when calculating the arctan
     yaw = np.arctan2((v1.x - v2.x), (v1.y - v2.y))
     q = quaternion_from_euler(0.0, 0.0, yaw)

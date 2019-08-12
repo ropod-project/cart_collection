@@ -12,6 +12,16 @@ from cart_drop_off.go_to_post_undock_setpoint import GoToPostUndockSetpoint
 
 class CartDropOffSM(StateMachine):
     '''
+    Exposes a state machine for cart undocking.
+
+    The state machine expects several parameters to be made available to the ROS parameter server,
+    which are required by various undocking states:
+
+    map_frame_name: str -- name of the world frame for global localisation (default map)
+    preundock_offset_m: float -- offset from wall for pre undock pose in meters (default 0.5)
+    undock_offset_m: float -- offset from wall for undock pose in meters (default 0.2)
+    post_undock_forward_distance_m: float -- distance to move away from cart after undocking in meters (default 0.7)
+
     @author Wouter Houtman, Santosh Thoduka, Sebastian Blumenthal
     @contact w.houtman@tue.nl, santosh.thoduka@h-brs.de, blumenthal@locomotec.com
 
@@ -21,7 +31,7 @@ class CartDropOffSM(StateMachine):
 
         # get setpoint in preundock area state params
         map_frame_name = rospy.get_param('~map_frame_name', 'map')
-        preundock_offset_m = float(rospy.get_param('~preundock_offset_m', '0.2'))
+        preundock_offset_m = float(rospy.get_param('~preundock_offset_m', '0.5'))
         undock_offset_m = float(rospy.get_param('~undock_offset_m', '0.2'))
         post_undock_forward_distance_m = float(rospy.get_param('~post_undock_forward_distance_m', '0.7'))
 

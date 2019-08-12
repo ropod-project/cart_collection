@@ -6,6 +6,9 @@ from maneuver_navigation.msg import Goal as ManeuverNavGoal
 from maneuver_navigation.msg import Feedback as ManeuverNavFeedback
 
 class GoToPostUndockSetpoint(smach.State):
+    '''
+    Sends a navigation goal to the post undock pose and waits until the goal has been reached.
+    '''
     def __init__(self, timeout=15.0):
         smach.State.__init__(self, outcomes=['reached_setpoint',
                                              'setpoint_unreachable',

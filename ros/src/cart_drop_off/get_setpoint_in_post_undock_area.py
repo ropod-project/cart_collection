@@ -5,6 +5,9 @@ from geometry_msgs.msg import PoseStamped, PoseWithCovarianceStamped
 from cart_collection.cart_collection_utils import get_setpoint_in_front_of_pose
 
 class GetSetpointInPostUndockArea(smach.State):
+    '''
+    Sets the post undock pose as a fixed offset from the current position of the robot.
+    '''
     def __init__(self, timeout=5.0,
                       distance_to_move=0.4):
         smach.State.__init__(self, outcomes=['setpoint_found',

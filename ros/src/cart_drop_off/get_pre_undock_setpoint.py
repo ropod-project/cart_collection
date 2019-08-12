@@ -9,6 +9,13 @@ from ropod_ros_msgs.msg import GetShapeAction, GetShapeGoal
 from cart_collection.cart_collection_utils import get_pose_perpendicular_to_longest_edge
 
 class GetSetpointInPreUndockArea(smach.State):
+    '''
+    Sets the pre undock pose. The pose is set at a a distance from the largest edge of the
+    specified sub area and oriented perpendicular to it (inwards into to sub area)
+
+    1. get geometry of sub area (via query to the world model mediator)
+    2. calculate pose perpendicular to the largest edge of the sub area
+    '''
     def __init__(self, timeout=5.0,
                 preundock_offset_m=0.5,
                 map_frame_name='map'):

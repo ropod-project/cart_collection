@@ -5,6 +5,9 @@ from std_msgs.msg import Bool
 from ropod_ros_msgs.msg import DockingCommand, DockingFeedback
 
 class CoupleToCart(smach.State):
+    '''
+    Couples the robot to the cart using the docking mechanism and sets the ropod in 'load_attached' mode
+    '''
     def __init__(self, timeout=60.0,
                  nav_load_attached_topic='/route_navigation/set_load_attached',
                  max_coupling_attempts=3):

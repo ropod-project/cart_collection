@@ -6,6 +6,13 @@ from geometry_msgs.msg import PoseStamped
 from cart_collection.cart_collection_utils import get_setpoint_in_front_of_pose
 
 class GetSetpointInPreDockArea(smach.State):
+    '''
+    Sets a target pose for the robot in front of the cart at the specified distance.
+
+    This is the pre dock pose, and is assumed to be within a reasonable distance of
+    the cart, such that the cart would be visible by rear-facing sensors on the robot
+    for final approach.
+    '''
     def __init__(self, timeout=5.0,
                  robot_length_m=0.73,
                  cart_length_m=0.81,

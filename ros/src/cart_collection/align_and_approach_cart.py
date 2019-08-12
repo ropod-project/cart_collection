@@ -4,11 +4,22 @@ import rospy
 
 from geometry_msgs.msg import Twist, PoseStamped
 from ropod_ros_msgs.msg import ObjectList
-from ropod_ros_msgs.srv import ToggleObjectPublisher, ToggleObjectPublisherRequest
+from ropod_ros_msgs.srv import ToggleObjectPublisher
 
 from cart_collection.cart_collection_utils import get_setpoint_in_front_of_pose, get_yaw_from_pose
 
+
 class AlignAndApproachCart(smach.State):
+    '''
+    Performs the final approach to the cart such that the robot is centered with respect to the cart
+    and sufficiently close that the docking mechanism can capture the cart.
+
+    1. request continuous publication of cart pose by calling the `toggle_cart_publisher_srv` service
+    2. calculate approach velocity based on cart pose such that the robot arrives at the target pose
+      in both axes (x and y) simultaneously
+    3. send the velocity command to the robot
+    4. repeat 2 and 3 until target pose is reached
+    '''
     def __init__(self, timeout=15.0,
                  offset_to_approach_pose_m=0.55,
                  backward_vel_docking_ms=0.1,
@@ -37,11 +48,11 @@ class AlignAndApproachCart(smach.State):
 
         self.cart_front_pose = None
         self.timeout = rospy.Duration.from_sec(timeout)
-        self.pose_reached =  False
+        self.pose_reached = False
 
     def execute(self, userdata):
         self.cart_front_pose = None
-        self.pose_reached =  False
+        self.pose_reached = False
         resp = self.toggle_cart_publisher_client(enable_publisher=True)
         if (not resp.success):
             return 'cart_pose_publisher_not_available'
@@ -66,7 +77,7 @@ class AlignAndApproachCart(smach.State):
 
     def cart_front_pose_callback(self, msg):
         if msg.objects:
-            self.cart_front_pose =  msg.objects[0].pose
+            self.cart_front_pose = msg.objects[0].pose
 
         if len(msg.objects) > 1:
             rospy.logwarn("[cart_collector] Precondition for cart_front_pose_callback not met: Only one cart front beeing detected. Taking the first one.")
@@ -78,7 +89,7 @@ class AlignAndApproachCart(smach.State):
         if abs(pose.pose.position.x) < self.approach_x_thresh_m \
             and abs(pose.pose.position.y) < self.approach_y_thresh_m \
             and abs(yaw) < self.approach_yaw_thresh_rad:
-            return vel, True # Reached / Done
+            return vel, True  # Reached / Done
 
         if abs(pose.pose.position.x) > self.approach_x_thresh_m \
             and abs(pose.pose.position.x) > abs(pose.pose.position.y):
@@ -101,4 +112,4 @@ class AlignAndApproachCart(smach.State):
             # magnitude of self.max_rot_vel_docking_rads, sign of yaw
             vel.angular.z = math.copysign(self.max_rot_vel_docking_rads, yaw)
 
-        return vel, False # Not yet done, thus False
+        return vel, False  # Not yet done, thus False

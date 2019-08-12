@@ -6,6 +6,9 @@ from geometry_msgs.msg import PoseStamped, PoseWithCovarianceStamped
 from cart_collection.cart_collection_utils import get_setpoint_in_front_of_pose
 
 class GetUndockSetpoint(smach.State):
+    '''
+    Sets the undock pose as a fixed offset from the wall the robot is supposed to undock against
+    '''
     def __init__(self, timeout=5.0,
                  preundock_offset_m=0.5,
                  undock_offset_m=0.2):

@@ -5,6 +5,11 @@ from geometry_msgs.msg import PoseStamped, PoseWithCovarianceStamped
 from cart_collection.cart_collection_utils import get_setpoint_in_front_of_pose
 
 class GetSetpointInPostDockArea(smach.State):
+    '''
+    Sets the target pose for the robot to reach after docking has been completed.
+    The purpose of this target pose is so that robot+cart are sufficiently far away
+    from the wall to perform navigation maneuvers.
+    '''
     def __init__(self, timeout=5.0,
                       distance_to_move=0.4):
         smach.State.__init__(self, outcomes=['setpoint_found',

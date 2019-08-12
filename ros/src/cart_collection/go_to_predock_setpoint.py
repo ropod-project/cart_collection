@@ -9,6 +9,9 @@ from maneuver_navigation.msg import Feedback as ManeuverNavFeedback
 from cart_collection.cart_collection_utils import set_dynamic_navigation_params
 
 class GoToPreDockSetpoint(smach.State):
+    '''
+    Sends a navigation goal to the pre dock pose and waits until it is complete.
+    '''
     def __init__(self, timeout=60.0):
         smach.State.__init__(self, outcomes=['reached_setpoint',
                                              'setpoint_unreachable',

@@ -9,6 +9,9 @@ from cart_collection.cart_collection_utils import set_dynamic_navigation_params
 
 
 class GoToUndockSetpoint(smach.State):
+    '''
+    Sends a navigation goal to the undock pose and waits until the goal has been reached.
+    '''
     def __init__(self, timeout=15.0,
                  preundock_offset_m=0.5,
                  undock_offset_m=0.2):

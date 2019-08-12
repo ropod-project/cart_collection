@@ -9,6 +9,16 @@ from ropod_ros_msgs.msg import GetShapeAction, GetShapeGoal
 from cart_collection.cart_collection_utils import get_pose_perpendicular_to_edge
 
 class GetCartPose(smach.State):
+    '''
+    Gets the pose of the cart within the specified sub area using queries to the world model.
+    We assume that the cart is always up against a wall / perpendicular to one of the edges
+    of the sub area.
+
+    1. Get the pose of the cart by querying the world model mediator
+    2. Get the geometry of the sub area
+    3. Modify the pose of the cart such that it is roughly perpendicular to one of the
+       edges of the sub area
+    '''
     def __init__(self, timeout=5.0,
                  map_frame_name='map'):
         smach.State.__init__(self, outcomes=['cart_found', 'cart_not_found', 'timeout'],
