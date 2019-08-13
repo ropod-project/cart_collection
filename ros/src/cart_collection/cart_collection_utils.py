@@ -298,11 +298,18 @@ def get_pose_perpendicular_to_longest_edge(shape, offset_from_edge):
 
 def get_pose_perpendicular_to_wall(area_shape, sub_area_shape, offset_from_edge):
     '''
+    Returns a pose whose orientation best aligns with the normal
+    of the edge of the sub area which is closest to an edge of the area, with
+    the position offset from the edge by `offset_from_edge`.
+    The orientation of the output pose will face the inside of the polygon defined by
+    `sub_area_shape`.
+    By finding the edge of the sub area closest to an edge of the area, we are effectively
+    finding the edge closest to a wall.
+
     args:
     area_shape: list of ropod_ros_msgs.msg.Position -- area polygon defined by list of points
     sub_area_shape: list of ropod_ros_msgs.msg.Position -- sub area polygon defined by list of points
-    offset_from_edge: float -- offset (in meters) of the pose from the ...
-
+    offset_from_edge: float -- offset (in meters) of the pose from the selected edge of the sub area shape
     '''
     ## find the edge of the sub-area which is closest to one of the
     ## edges of the area. We assume this to be the edge closest to a wall
