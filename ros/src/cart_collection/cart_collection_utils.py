@@ -171,6 +171,19 @@ def is_point_in_polygon(point, polygon):
         return False
     return True
 
+def is_pose_in_polygon(pose, polygon):
+    '''
+    Returns True if `pose` is contained within the `polygon`
+
+    args:
+    pose: geometry_msgs.msg.PoseStamped -- test pose
+    polygon: list of ropod_ros_msgs.msg.Position -- polygon defined as a list of points; the first and last point are identical
+    '''
+    point = ropod_ros_msgs.msg.Position()
+    point.x = pose.pose.position.x
+    point.y = pose.pose.position.x
+    return is_point_in_polygon(point, polygon)
+
 
 def get_pose_closest_to_normal(input_pose, edge_normal):
     '''
@@ -258,46 +271,6 @@ def get_pose_perpendicular_to_edge(shape, input_pose):
     return output_pose
 
 
-def get_pose_perpendicular_to_longest_edge(shape, offset_from_edge):
-    '''
-    Returns a pose whose orientation best aligns with the normal
-    of the longest edge of `shape` with the position offset from the edge by `offset_from_edge`.
-    The orientation of the output pose will face the inside of the polygon defined by `shape`.
-
-    args:
-    shape: list of ropod_ros_msgs.msg.Position -- polygon defined by list of points
-    offset_from_edge: float -- offset (in meters) of the pose from the longest edge of the shape
-
-    '''
-    max_length = 0.0
-    longest_edge_idx = 0
-    for idx, v in enumerate(shape.vertices[:-1]):  # last and first vertex are the same
-        v2 = shape.vertices[idx+1]
-        length = np.sqrt((v2.y - v.y)**2 + (v2.x - v.x)**2)
-        if length > max_length:
-            max_length = length
-            longest_edge_idx = idx
-    v1 = shape.vertices[longest_edge_idx]
-    v2 = shape.vertices[longest_edge_idx + 1]
-
-    pose = PoseStamped()
-    pose.pose.position.x = (v1.x + v2.x) / 2.0
-    pose.pose.position.y = (v1.y + v2.y) / 2.0
-    # we need the yaw perpendicular to the edge
-    # hence, x and y are swapped when calculating the arctan
-    yaw = np.arctan2((v1.x - v2.x), (v1.y - v2.y))
-    q = quaternion_from_euler(0.0, 0.0, yaw)
-    pose.pose.orientation.x = q[0]
-    pose.pose.orientation.x = q[1]
-    pose.pose.orientation.x = q[2]
-    pose.pose.orientation.x = q[3]
-
-    output_pose = get_pose_perpendicular_to_edge(shape, pose)
-    yaw = get_yaw_from_pose(output_pose)
-    output_pose.pose.position.x += (offset_from_edge * np.cos(yaw))
-    output_pose.pose.position.y += (offset_from_edge * np.sin(yaw))
-    return output_pose
-
 def get_pose_perpendicular_to_wall(area_shape, sub_area_shape, offset_from_edge):
     '''
     Returns a pose whose orientation best aligns with the normal
@@ -313,8 +286,8 @@ def get_pose_perpendicular_to_wall(area_shape, sub_area_shape, offset_from_edge)
     sub_area_shape: list of ropod_ros_msgs.msg.Position -- sub area polygon defined by list of points
     offset_from_edge: float -- offset (in meters) of the pose from the selected edge of the sub area shape
     '''
-    ## find the edge of the sub-area which is closest to one of the
-    ## edges of the area. We assume this to be the edge closest to a wall
+    # find the edge of the sub-area which is closest to one of the
+    # edges of the area. We assume this to be the edge closest to a wall
     min_distance = 1000.0
     wall_edge_idx = 0
     for idx1, area_v in enumerate(area_shape.vertices[:-1]):  # last and first vertex are the same

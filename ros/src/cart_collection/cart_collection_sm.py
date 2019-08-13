@@ -87,7 +87,8 @@ class CartCollectionSM(StateMachine):
                                                                                        cart_length_m=cart_length_m,
                                                                                        distance_to_cart_m=distance_to_cart_m),
                              transitions={'setpoint_found': 'GO_TO_PRE_DOCK_SETPOINT',
-                                          'setpoint_unreachable': 'failed'})
+                                          'setpoint_unreachable': 'failed',
+                                          'timeout': 'failed'})
 
             StateMachine.add('GO_TO_PRE_DOCK_SETPOINT', GoToPreDockSetpoint(),
                              transitions={'reached_setpoint': 'ALIGN_AND_APPROACH_CART',
