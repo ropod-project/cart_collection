@@ -9,6 +9,25 @@ from geometry_msgs.msg import PoseStamped
 import ropod_ros_msgs.msg
 
 
+def send_feedback(action_req, action_server, feedback_status_code):
+    '''
+    Publishes action feedback, setting the status code to `feedback_status_code`
+    The status codes are defined in ropod_ros_msgs.msg.Status
+
+    args:
+    action_req: ropod_ros_msgs.msg.Action -- action message
+    action_server: ActionServer -- action server
+    feedback_status_code: uint16 ropod_ros_msgs.msg.Status.status_code -- status code for current action
+    '''
+    feedback = ropod_ros_msgs.msg.TaskProgressDOCK()
+    feedback.action_id = action_req.action_id
+    feedback.action_type = action_req.type
+    feedback.status.domain = ropod_ros_msgs.msg.Status.ROBOT
+    feedback.status.module_code = ropod_ros_msgs.msg.Status.MOBIDIK_COLLECTION
+    feedback.status.status_code = feedback_status_code
+    action_server.publish_feedback(feedback)
+
+
 def get_yaw_from_pose(pose):
     '''
     Returns yaw (in radians) of the input pose

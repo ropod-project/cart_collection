@@ -12,6 +12,8 @@ from ropod.ftsm.ftsm_base import FTSMBase, DependMonitorTypes
 from cart_collection.cart_collection_sm import CartCollectionSM
 from cart_drop_off.cart_drop_off_sm import CartDropOffSM
 
+from cart_collection.cart_collection_utils import send_feedback
+
 class CartCollection(FTSMBase):
     def __init__(self):
         component_name = 'cart_collector'
@@ -65,16 +67,30 @@ class CartCollection(FTSMBase):
         self.current_action = action_request.action
 
         if (action_type == 'DOCK'):
-            sm = CartCollectionSM(cart_sub_area=action_request.action.areas[0].sub_areas[0].id)
+            sm = CartCollectionSM(cart_sub_area=action_request.action.areas[0].sub_areas[0].id,
+                    action_req=action_request.action,
+                    action_server=self.collect_cart_server)
         elif (action_type == 'UNDOCK'):
-            sm = CartDropOffSM(cart_sub_area=action_request.action.areas[0].sub_areas[0].id)
+            sm = CartDropOffSM(cart_sub_area=action_request.action.areas[0].sub_areas[0].id,
+                    action_req=action_request.action,
+                    action_server=self.collect_cart_server)
 
         res = sm.execute()
         result = DockResult()
         if (res == 'failed'):
+            if (action_type == 'DOCK'):
+                feedback_status = Status.DOCKING_SEQUENCE_FAILED
+            else:
+                feedback_status = Status.UNDOCKING_SEQUENCE_FAILED
+            send_feedback(action_request.action, self.collect_cart_server, feedback_status)
             result.success = False
             self.collect_cart_server.set_succeeded(result=result)
         else:
+            if (action_type == 'DOCK'):
+                feedback_status = Status.DOCKING_SEQUENCE_SUCCEEDED
+            else:
+                feedback_status = Status.UNDOCKING_SEQUENCE_SUCCEEDED
+            send_feedback(action_request.action, self.collect_cart_server, feedback_status)
             result.success = True
             self.collect_cart_server.set_succeeded(result=result)
 
