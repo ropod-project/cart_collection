@@ -25,7 +25,9 @@ def send_feedback(action_req, action_server, feedback_status_code):
     feedback.status.domain = ropod_ros_msgs.msg.Status.ROBOT
     feedback.status.module_code = ropod_ros_msgs.msg.Status.MOBIDIK_COLLECTION
     feedback.status.status_code = feedback_status_code
-    action_server.publish_feedback(feedback)
+    feedback_msg = ropod_ros_msgs.msg.DockFeedback()
+    feedback_msg.feedback = feedback
+    action_server.publish_feedback(feedback_msg)
 
 
 def get_yaw_from_pose(pose):
@@ -329,8 +331,8 @@ def get_pose_perpendicular_to_wall(area_shape, sub_area_shape, offset_from_edge)
             if dist < min_distance:
                 min_distance = dist
                 wall_edge_idx = idx2
-    v1 = shape.vertices[wall_edge_idx]
-    v2 = shape.vertices[wall_edge_idx + 1]
+    v1 = sub_area_shape.vertices[wall_edge_idx]
+    v2 = sub_area_shape.vertices[wall_edge_idx + 1]
 
     pose = PoseStamped()
     pose.pose.position.x = (v1.x + v2.x) / 2.0
@@ -344,7 +346,7 @@ def get_pose_perpendicular_to_wall(area_shape, sub_area_shape, offset_from_edge)
     pose.pose.orientation.x = q[2]
     pose.pose.orientation.x = q[3]
 
-    output_pose = get_pose_perpendicular_to_edge(shape, pose)
+    output_pose = get_pose_perpendicular_to_edge(sub_area_shape, pose)
     yaw = get_yaw_from_pose(output_pose)
     output_pose.pose.position.x += (offset_from_edge * np.cos(yaw))
     output_pose.pose.position.y += (offset_from_edge * np.sin(yaw))

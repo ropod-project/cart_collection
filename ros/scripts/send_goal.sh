@@ -15,13 +15,13 @@ goal:
     action_id: ''
     type: '$1'
     areas:
-    - id: ''
+    - id: '$2'
       name: ''
       type: ''
       floor_number: 0
       sub_areas:
       - name: ''
-        id: '$2'
+        id: '$3'
         floor_number: 0
         type: ''
         capacity: 0
