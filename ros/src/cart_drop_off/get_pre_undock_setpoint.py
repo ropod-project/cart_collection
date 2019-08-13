@@ -6,7 +6,7 @@ from geometry_msgs.msg import PoseStamped
 
 from ropod_ros_msgs.msg import GetShapeAction, GetShapeGoal
 
-from cart_collection.cart_collection_utils import get_pose_perpendicular_to_longest_edge
+from cart_collection.cart_collection_utils import get_pose_perpendicular_to_wall
 
 class GetSetpointInPreUndockArea(smach.State):
     '''
@@ -21,7 +21,7 @@ class GetSetpointInPreUndockArea(smach.State):
                 map_frame_name='map'):
         smach.State.__init__(self,
                              outcomes=['setpoint_found', 'setpoint_unreachable', 'timeout'],
-                             input_keys=['cart_sub_area'],
+                             input_keys=['cart_area', 'cart_sub_area'],
                              output_keys=['pre_undock_setpoint'])
         self.timeout = rospy.Duration.from_sec(timeout)
         self.preundock_offset = preundock_offset_m
@@ -43,13 +43,22 @@ class GetSetpointInPreUndockArea(smach.State):
         self.get_shape_client.send_goal(goal)
         shape_success = self.get_shape_client.wait_for_result(timeout=self.timeout)
         if not shape_success:
+            rospy.logerr("[cart_collector] Timed out waiting for shape of undocking sub area")
+            return 'timeout'
+        sub_area_shape_result = self.get_shape_client.get_result()
+
+        goal = GetShapeGoal()
+        goal.id = int(userdata.cart_area)
+        goal.type = 'area'
+        self.get_shape_client.send_goal(goal)
+        shape_success = self.get_shape_client.wait_for_result(timeout=self.timeout)
+        if not shape_success:
             rospy.logerr("[cart_collector] Timed out waiting for shape of undocking area")
             return 'timeout'
-        shape_result = self.get_shape_client.get_result()
+        area_shape_result = self.get_shape_client.get_result()
 
-        # TODO: we should get the edge which is along a wall
         # TODO: check that the pose is reachable
-        cart_pose = get_pose_perpendicular_to_longest_edge(shape_result.shape, self.preundock_offset)
+        cart_pose = get_pose_perpendicular_to_wall(area_shape_result.shape, sub_area_shape_result.shape, self.preundock_offset)
         cart_pose.header.frame_id = self.map_frame_name
         cart_pose.header.stamp = rospy.Time.now()
 

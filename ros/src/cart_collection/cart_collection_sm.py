@@ -44,7 +44,7 @@ class CartCollectionSM(StateMachine):
     @contact w.houtman@tue.nl, santosh.thoduka@h-brs.de, blumenthal@locomotec.com
 
     '''
-    def __init__(self, cart_sub_area, action_req, action_server):
+    def __init__(self, cart_area, cart_sub_area, action_req, action_server):
         StateMachine.__init__(self, outcomes=['done', 'failed'])
 
         # get cart pose state params
@@ -72,6 +72,7 @@ class CartCollectionSM(StateMachine):
         self.userdata.cart_pose = None
         self.userdata.pre_dock_setpoint = None
         self.userdata.post_dock_setpoint = None
+        self.userdata.cart_area = cart_area
         self.userdata.cart_sub_area = cart_sub_area
         self.userdata.action_req = action_req
         self.userdata.action_server = action_server

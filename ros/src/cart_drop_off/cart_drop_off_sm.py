@@ -26,7 +26,7 @@ class CartDropOffSM(StateMachine):
     @contact w.houtman@tue.nl, santosh.thoduka@h-brs.de, blumenthal@locomotec.com
 
     '''
-    def __init__(self, cart_sub_area):
+    def __init__(self, cart_area, cart_sub_area, action_req, action_server):
         StateMachine.__init__(self, outcomes=['done', 'failed'])
 
         # get setpoint in preundock area state params
@@ -35,9 +35,12 @@ class CartDropOffSM(StateMachine):
         undock_offset_m = float(rospy.get_param('~undock_offset_m', '0.2'))
         post_undock_forward_distance_m = float(rospy.get_param('~post_undock_forward_distance_m', '0.7'))
 
-        self.userdata.cart_sub_area = cart_sub_area
         self.userdata.undock_setpoint = None
         self.userdata.post_undock_setpoint = None
+        self.userdata.cart_area = cart_area
+        self.userdata.cart_sub_area = cart_sub_area
+        self.userdata.action_req = action_req
+        self.userdata.action_server = action_server
 
         with self:
             StateMachine.add('GET_SETPOINT_IN_PRE_UNDOCK_AREA', GetSetpointInPreUndockArea(preundock_offset_m=preundock_offset_m,

@@ -295,3 +295,50 @@ def get_pose_perpendicular_to_longest_edge(shape, offset_from_edge):
     output_pose.pose.position.x += (offset_from_edge * np.cos(yaw))
     output_pose.pose.position.y += (offset_from_edge * np.sin(yaw))
     return output_pose
+
+def get_pose_perpendicular_to_wall(area_shape, sub_area_shape, offset_from_edge):
+    '''
+    args:
+    area_shape: list of ropod_ros_msgs.msg.Position -- area polygon defined by list of points
+    sub_area_shape: list of ropod_ros_msgs.msg.Position -- sub area polygon defined by list of points
+    offset_from_edge: float -- offset (in meters) of the pose from the ...
+
+    '''
+    ## find the edge of the sub-area which is closest to one of the
+    ## edges of the area. We assume this to be the edge closest to a wall
+    min_distance = 1000.0
+    wall_edge_idx = 0
+    for idx1, area_v in enumerate(area_shape.vertices[:-1]):  # last and first vertex are the same
+        area_v2 = area_shape.vertices[idx1+1]
+        p1 = ropod_ros_msgs.msg.Position()
+        p1.x = (area_v.x + area_v2.x) / 2.0
+        p1.y = (area_v.y + area_v2.y) / 2.0
+        for idx2, sub_area_v in enumerate(sub_area_shape.vertices[:-1]):  # last and first vertex are the same
+            sub_area_v2 = sub_area_shape.vertices[idx2+1]
+            p2 = ropod_ros_msgs.msg.Position()
+            p2.x = (sub_area_v.x + sub_area_v2.x) / 2.0
+            p2.y = (sub_area_v.y + sub_area_v2.y) / 2.0
+            dist = np.sqrt((p2.y - p1.y)**2 + (p2.x - p1.x)**2)
+            if dist < min_distance:
+                min_distance = dist
+                wall_edge_idx = idx2
+    v1 = shape.vertices[wall_edge_idx]
+    v2 = shape.vertices[wall_edge_idx + 1]
+
+    pose = PoseStamped()
+    pose.pose.position.x = (v1.x + v2.x) / 2.0
+    pose.pose.position.y = (v1.y + v2.y) / 2.0
+    # we need the yaw perpendicular to the edge
+    # hence, x and y are swapped when calculating the arctan
+    yaw = np.arctan2((v1.x - v2.x), (v1.y - v2.y))
+    q = quaternion_from_euler(0.0, 0.0, yaw)
+    pose.pose.orientation.x = q[0]
+    pose.pose.orientation.x = q[1]
+    pose.pose.orientation.x = q[2]
+    pose.pose.orientation.x = q[3]
+
+    output_pose = get_pose_perpendicular_to_edge(shape, pose)
+    yaw = get_yaw_from_pose(output_pose)
+    output_pose.pose.position.x += (offset_from_edge * np.cos(yaw))
+    output_pose.pose.position.y += (offset_from_edge * np.sin(yaw))
+    return output_pose

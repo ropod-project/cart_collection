@@ -67,11 +67,13 @@ class CartCollection(FTSMBase):
         self.current_action = action_request.action
 
         if (action_type == 'DOCK'):
-            sm = CartCollectionSM(cart_sub_area=action_request.action.areas[0].sub_areas[0].id,
+            sm = CartCollectionSM(cart_area=action_request.action.areas[0].id,
+                    cart_sub_area=action_request.action.areas[0].sub_areas[0].id,
                     action_req=action_request.action,
                     action_server=self.collect_cart_server)
         elif (action_type == 'UNDOCK'):
-            sm = CartDropOffSM(cart_sub_area=action_request.action.areas[0].sub_areas[0].id,
+            sm = CartDropOffSM(cart_area=action_request.action.areas[0].id,
+                    cart_sub_area=action_request.action.areas[0].sub_areas[0].id,
                     action_req=action_request.action,
                     action_server=self.collect_cart_server)
 
