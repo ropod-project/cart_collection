@@ -50,6 +50,16 @@ class CartCollection(FTSMBase):
     def recovering(self):
         return FTSMTransitions.DONE_RECOVERING
 
+    def start_cb(self, *args, **kwargs):
+        sm_state = args[1][0]
+        action_request = args[2]
+        send_feedback(action_request.action, self.collect_cart_server, sm_state=sm_state)
+
+    def transition_cb(self, *args, **kwargs):
+        sm_state = args[1][0]
+        action_request = args[2]
+        send_feedback(action_request.action, self.collect_cart_server, sm_state=sm_state)
+
     def collect_cart_server_cb(self, action_request):
         action_type = action_request.action.type
         if action_type != 'DOCK' and action_type != 'UNDOCK':
@@ -76,6 +86,9 @@ class CartCollection(FTSMBase):
                     cart_sub_area=action_request.action.areas[0].sub_areas[0].id,
                     action_req=action_request.action,
                     action_server=self.collect_cart_server)
+
+        sm.register_transition_cb(self.transition_cb, [action_request])
+        sm.register_start_cb(self.start_cb, [action_request])
 
         res = sm.execute()
         result = DockResult()
