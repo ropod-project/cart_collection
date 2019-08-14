@@ -17,7 +17,7 @@ class GoToPostDockSetpoint(smach.State):
 
     def execute(self, userdata):
         vel = Twist()
-        vel.linear.x = 0.1
+        vel.linear.x = 0.3
         # TODO: make this configurable and use local obstacle avoidance
         runtime = rospy.Duration.from_sec(0.3 / vel.linear.x)
         start_time = rospy.Time.now()

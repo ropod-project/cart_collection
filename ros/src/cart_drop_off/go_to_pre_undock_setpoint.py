@@ -43,7 +43,7 @@ class GoToPreUndockSetpoint(smach.State):
         set_dynamic_navigation_params('undocking_speed')
         # Send goal
         nav_goal = ManeuverNavGoal()
-        nav_goal.conf.precise_goal = True
+        nav_goal.conf.precise_goal = False
         nav_goal.conf.use_line_planner = True
         nav_goal.conf.append_new_maneuver = False
         nav_goal.start = self.robot_pose
