@@ -52,6 +52,7 @@ class CoupleToCart(smach.State):
                         self.docking_cmd_pub.publish(docking_msg)
                         return 'coupling_failed'
                     rospy.logwarn("[cart_collector] Coupling attempt " + str(self.coupling_attempts) + " out of " + str(self.max_coupling_attempts) + " failed. Retrying.")
+                    self.docking_feedback = None
                     self.docking_cmd_pub.publish(docking_msg)
                     self.coupling_attempts = self.coupling_attempts + 1
             else:

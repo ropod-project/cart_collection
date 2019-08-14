@@ -1,9 +1,7 @@
 import smach
 import rospy
 
-from geometry_msgs.msg import PoseStamped, PoseWithCovarianceStamped
-from maneuver_navigation.msg import Goal as ManeuverNavGoal
-from maneuver_navigation.msg import Feedback as ManeuverNavFeedback
+from geometry_msgs.msg import Twist
 
 class GoToPostDockSetpoint(smach.State):
     '''
@@ -15,56 +13,18 @@ class GoToPostDockSetpoint(smach.State):
                                              'timeout'],
                              input_keys=['post_dock_setpoint'])
         self.timeout = rospy.Duration.from_sec(timeout)
-        self.feedback = None
-        self.robot_pose = None
-        self.nav_goal_pub = rospy.Publisher("nav_goal",
-                                            ManeuverNavGoal,
-                                            queue_size=1)
-        self.nav_feedback_sub = rospy.Subscriber("nav_feedback",
-                                                 ManeuverNavFeedback,
-                                                 self.feedback_callback)
-        self.robot_pose_sub = rospy.Subscriber("localisation_pose",
-                                               PoseWithCovarianceStamped,
-                                               self.robot_pose_callback)
+        self.cmd_vel_pub = rospy.Publisher("cmd_vel", Twist, queue_size=1)
 
     def execute(self, userdata):
-        # Get ropot pose
+        vel = Twist()
+        vel.linear.x = 0.1
+        # TODO: make this configurable and use local obstacle avoidance
+        runtime = rospy.Duration.from_sec(0.3 / vel.linear.x)
         start_time = rospy.Time.now()
-        while (rospy.Time.now() - start_time) <= self.timeout and self.robot_pose is None:
+        while rospy.Time.now() - start_time <= runtime:
+            self.cmd_vel_pub.publish(vel)
             rospy.sleep(0.1)
+        zero_vel = Twist()
+        self.cmd_vel_pub.publish(zero_vel)
+        return 'reached_setpoint'
 
-        if self.robot_pose is None:
-            rospy.logerr("[cart_collector] Precondition for GoToPostDockSetpoint not met: Robot pose not available. Aborting.")
-            return 'timeout'
-
-
-        # Send goal
-        nav_goal = ManeuverNavGoal()
-        nav_goal.conf.precise_goal = True
-        nav_goal.conf.use_line_planner = True
-        nav_goal.conf.append_new_maneuver = False
-        nav_goal.start = self.robot_pose
-        nav_goal.goal = userdata.post_dock_setpoint
-        self.nav_goal_pub.publish(nav_goal)
-
-        # Wait for result
-        self.feedback = None
-        start_time = rospy.Time.now()
-        while rospy.Time.now() - start_time <= self.timeout and self.feedback is None:
-            rospy.sleep(0.1)
-
-        if self.feedback is not None:
-            if self.feedback.status == ManeuverNavFeedback.SUCCESS:
-                return 'reached_setpoint'
-            if self.feedback.status == ManeuverNavFeedback.FAILURE_OBSTACLES:
-                return 'setpoint_unreachable'
-        return 'timeout'
-
-    def feedback_callback(self, msg):
-        self.feedback = msg
-
-    def robot_pose_callback(self, msg):
-        if self.robot_pose is None:
-            self.robot_pose = PoseStamped()
-        self.robot_pose.header = msg.header
-        self.robot_pose.pose = msg.pose.pose

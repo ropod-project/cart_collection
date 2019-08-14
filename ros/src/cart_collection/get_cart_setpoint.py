@@ -24,7 +24,7 @@ class GetSetpointInPreDockArea(smach.State):
                              outcomes=['setpoint_found', 'setpoint_unreachable', 'timeout'],
                              input_keys=['cart_area', 'cart_pose'],
                              output_keys=['pre_dock_setpoint'])
-        self.timeout = timeout
+        self.timeout = rospy.Duration.from_sec(timeout)
         self.robot_length_m = robot_length_m
         self.cart_length_m = cart_length_m
         self.distance_to_cart_m = distance_to_cart_m
@@ -62,9 +62,9 @@ class GetSetpointInPreDockArea(smach.State):
 
         # TODO: need to check if the pose is reachable too
         # for example, the pose could be within the area but too close to a wall
-        if (not is_pose_in_polygon(pre_dock_setpoint, shape_result.shape)):
-            rospy.logerr("[cart_collector] pre dock setpoint is outside docking area")
-            return 'setpoint_unreachable'
+        #if (not is_pose_in_polygon(pre_dock_setpoint, shape_result.shape.vertices)):
+        #    rospy.logerr("[cart_collector] pre dock setpoint is outside docking area")
+        #    return 'setpoint_unreachable'
 
         userdata.pre_dock_setpoint = pre_dock_setpoint
         rospy.loginfo("[cart_collector] pre_dock_setpoint = " + str(pre_dock_setpoint))

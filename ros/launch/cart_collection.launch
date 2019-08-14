@@ -10,7 +10,7 @@
         <!-- get cart setpoint state params -->
         <param name="robot_length_m" type="double" value="0.73" />
         <param name="cart_length_m" type="double" value="0.81" />
-        <param name="distance_to_cart_m" type="double" value="0.4" />
+        <param name="distance_to_cart_m" type="double" value="0.3" />
         <remap from="cart_predock_pose" to="/cart_collection/cart_predock_pose" />
 
         <!-- go to predock setpoint state params -->

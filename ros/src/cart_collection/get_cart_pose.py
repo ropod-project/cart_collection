@@ -5,6 +5,7 @@ import actionlib
 from geometry_msgs.msg import PoseStamped
 from ropod_ros_msgs.msg import GetObjectsAction, GetObjectsGoal
 from ropod_ros_msgs.msg import GetShapeAction, GetShapeGoal
+from ropod_ros_msgs.msg import Status
 
 from cart_collection.cart_collection_utils import get_pose_perpendicular_to_edge, send_feedback
 
@@ -23,7 +24,7 @@ class GetCartPose(smach.State):
                  map_frame_name='map'):
         smach.State.__init__(self, outcomes=['cart_found', 'cart_not_found', 'timeout'],
                              input_keys=['cart_sub_area', 'action_req', 'action_server'],
-                             output_keys=['cart_pose'])
+                             output_keys=['cart_pose', 'action_server'])
         self.get_objects_client = actionlib.SimpleActionClient("get_objects", GetObjectsAction)
         self.get_shape_client = actionlib.SimpleActionClient("get_shape", GetShapeAction)
         self.cart_pose_pub = rospy.Publisher("cart_pose", PoseStamped, queue_size=1)
@@ -70,6 +71,6 @@ class GetCartPose(smach.State):
         self.cart_pose_pub.publish(cart_pose)
         userdata.cart_pose = cart_pose
 
-        send_feedback(userdata.action_req, userdata.action_server, ropod_ros_msgs.msg.Status.MOBIDIK_DETECTED)
+        send_feedback(userdata.action_req, userdata.action_server, Status.MOBIDIK_DETECTED)
 
         return 'cart_found'
