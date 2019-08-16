@@ -21,11 +21,11 @@ class GoToUndockSetpoint(smach.State):
         vel = Twist()
         vel.linear.x = -0.3
         # TODO: make this configurable
-        runtime = rospy.Duration.from_sec(0.3 / vel.linear.x)
+        runtime = rospy.Duration.from_sec(0.8 / abs(vel.linear.x))
         start_time = rospy.Time.now()
         while rospy.Time.now() - start_time <= runtime:
             self.cmd_vel_pub.publish(vel)
-            rospy.sleep(0.1)
+            rospy.sleep(0.01)
         zero_vel = Twist()
         self.cmd_vel_pub.publish(zero_vel)
         return 'reached_setpoint'
