@@ -9,7 +9,8 @@ class GetSetpointInPostUndockArea(smach.State):
     Sets the post undock pose as a fixed offset from the current position of the robot.
     '''
     def __init__(self, timeout=5.0,
-                      distance_to_move=0.4):
+                      distance_to_move=0.4,
+                      map_frame_name="map"):
         smach.State.__init__(self, outcomes=['setpoint_found',
                                              'setpoint_unreachable',
                                              'timeout'],
@@ -17,6 +18,7 @@ class GetSetpointInPostUndockArea(smach.State):
         self.timeout = rospy.Duration.from_sec(timeout)
         self.robot_pose = None
         self.distance_to_move = distance_to_move
+        self.map_frame = map_frame_name
         self.cart_post_undock_pose_pub = rospy.Publisher("cart_post_undock_pose",
                                                 PoseStamped,
                                                 queue_size=1)
@@ -34,6 +36,7 @@ class GetSetpointInPostUndockArea(smach.State):
             return 'timeout'
 
         post_undock_setpoint = get_setpoint_in_front_of_pose(self.robot_pose, self.distance_to_move)
+        post_undock_setpoint.header.frame_id = self.map_frame
 
         if post_undock_setpoint is not None:
             userdata.post_undock_setpoint = post_undock_setpoint

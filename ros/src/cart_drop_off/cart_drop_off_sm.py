@@ -50,7 +50,7 @@ class CartDropOffSM(StateMachine):
                                           'timeout': 'failed'})
 
             StateMachine.add('GO_TO_PRE_UNDOCK_SETPOINT', GoToPreUndockSetpoint(),
-                             transitions={'reached_setpoint': 'GET_UNDOCK_SETPOINT',
+                             transitions={'reached_setpoint': 'UNCOUPLE_FROM_CART',
                                           'setpoint_unreachable': 'failed',
                                           'timeout': 'failed'})
 
@@ -71,7 +71,8 @@ class CartDropOffSM(StateMachine):
                                           'uncoupling_failed': 'failed',
                                           'cannot_switch_to_robot_mode': 'failed'})
 
-            StateMachine.add('GET_SETPOINT_IN_POST_UNDOCK_AREA', GetSetpointInPostUndockArea(distance_to_move=post_undock_forward_distance_m),
+            StateMachine.add('GET_SETPOINT_IN_POST_UNDOCK_AREA', GetSetpointInPostUndockArea(distance_to_move=post_undock_forward_distance_m,
+                                                                                             map_frame_name=map_frame_name),
                              transitions={'setpoint_found': 'GO_TO_POST_UNDOCK_SETPOINT',
                              # we consider the action a success even if it doesn't move forward post docking
                                           'setpoint_unreachable': 'done',
