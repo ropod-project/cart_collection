@@ -52,7 +52,7 @@ class GetSetpointInPreDockArea(smach.State):
 
         goal = GetShapeGoal()
         goal.id = int(userdata.cart_area)
-        goal.type = 'area'
+        goal.type = 'corridor'
         self.get_shape_client.send_goal(goal)
         shape_success = self.get_shape_client.wait_for_result(timeout=self.timeout)
         if not shape_success:
