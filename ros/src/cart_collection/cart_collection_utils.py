@@ -96,7 +96,7 @@ def set_dynamic_navigation_params(param_type):
         client.update_configuration(params[param_type])
     except Exception as e:
         rospy.logerr("Failed to set dynamic reconfigure params for " + node_name)
-        rospy.logerr(e.message())
+        rospy.logerr(e.message)
 
 
 def get_distance_to_line(p1, p2, tp):
