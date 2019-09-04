@@ -76,6 +76,8 @@ class CartCollectionSM(StateMachine):
         self.userdata.cart_sub_area = cart_sub_area
         self.userdata.action_req = action_req
         self.userdata.action_server = action_server
+        self.userdata.area_shape = None
+        self.userdata.sub_area_shape = None
 
         with self:
             StateMachine.add('GET_CART_POSE', GetCartPose(map_frame_name=map_frame_name),
@@ -124,7 +126,7 @@ class CartCollectionSM(StateMachine):
             #############################################################################################################
             ## Non-nominal states; i.e. states to execute when the nominal execution fails
 
-            StateMachine.add('LOOK_FOR_CART', LookForCart(),
+            StateMachine.add('LOOK_FOR_CART', LookForCart(map_frame_name=map_frame_name, robot_length_m=robot_length_m),
                              transitions={'cart_found': 'GET_SETPOINT_IN_PRE_DOCK_AREA',
                                           'cart_not_found': 'failed',
                                           'timeout': 'failed'})

@@ -226,7 +226,7 @@ def get_pose_perpendicular_to_edge(shape, input_pose):
     the inside of the polygon defined by `shape`.
 
     args:
-    shape: list of ropod_ros_msgs.msg.Position -- polygon defined by list of points
+    shape: ropod_ros_msgs.msg.Shape -- polygon defined by list of points
     input_pose: geometry_msgs.msg.PoseStamped -- input pose
     '''
     closest_edge_idx = 0
@@ -326,3 +326,71 @@ def get_pose_perpendicular_to_wall(area_shape, sub_area_shape, offset_from_edge)
     output_pose.pose.position.x += (offset_from_edge * np.cos(yaw))
     output_pose.pose.position.y += (offset_from_edge * np.sin(yaw))
     return output_pose
+
+def generate_points_in_triangle(triangle):
+    '''
+    Returns a list of points which are contained inside the `triangle`
+
+    args:
+    triangle: list of ropod_ros_msgs.msg.Position -- triangle defined as a list of three points
+    '''
+
+    ptriangle = []
+    for p in triangle:
+        ptriangle.append([p.x, p.y])
+    ptriangle = np.array(ptriangle)
+    origin = ptriangle[0]
+    ptriangle = ptriangle - origin
+    generated_points = []
+    # Based on the first non-uniform example here: http://mathworld.wolfram.com/TrianglePointPicking.html
+    for idx in range(60):
+        a1 = np.random.random()
+        a2 = np.random.random()
+        p = (ptriangle[1] * a1) + (ptriangle[2] * (1.0 - a1) * a2);
+        p += origin
+        rosp = ropod_ros_msgs.msg.Position()
+        rosp.x = p[0]
+        rosp.y = p[1]
+        generated_points.append(rosp)
+    return generated_points
+
+
+
+def generate_points_in_polygon(closed_polygon):
+    '''
+    Returns a list of points which are contained inside the `closed_polygon`
+
+    args:
+    closed_polygon: list of ropod_ros_msgs.msg.Position -- polygon defined as a list of points; the first and last point are identical
+    '''
+
+    polygon = closed_polygon[:-1]
+    generated_points = []
+    for idx, p in enumerate(polygon):
+        triangle = [p, polygon[(idx+1) % len(polygon)], polygon[(idx+2) % len(polygon)]]
+        triangle_points = generate_points_in_triangle(triangle)
+        generated_points.extend(triangle_points)
+    return generated_points
+
+def filter_points_close_to_polygon(polygon, input_points, distance_threshold):
+    '''
+    Returns a list of points which are at least `distance_threshold` away from all edges of the `polygon`
+
+    args:
+    polygon: list of ropod_ros_msgs.msg.Position -- polygon defined as a list of points; the first and last point are identical
+    input_points: list of ropod_ros_msgs.msg.Position
+    distance_threshold: minimum distance (in meter) of filtered points to every edge of the polygon
+    '''
+
+    filtered_points = []
+    for test_point in input_points:
+        threshold_satisfied = True
+        for idx, p in enumerate(polygon[:-1]):
+            p2 = polygon[idx + 1]
+            distance = get_distance_to_line(p, p2, test_point)
+            if (distance < distance_threshold):
+                threshold_satisfied = False
+                break
+        if threshold_satisfied:
+            filtered_points.append(test_point)
+    return filtered_points
