@@ -23,7 +23,7 @@ class GetCartPose(smach.State):
     def __init__(self, timeout=5.0,
                  map_frame_name='map'):
         smach.State.__init__(self, outcomes=['cart_found', 'cart_not_found', 'timeout'],
-                             input_keys=['cart_area', 'cart_sub_area', 'action_req', 'action_server'],
+                             input_keys=['cart_area', 'cart_sub_area', 'action_req', 'action_server', 'sub_area_shape'],
                              output_keys=['cart_pose', 'action_server', 'area_shape', 'sub_area_shape'])
         self.get_objects_client = actionlib.SimpleActionClient("get_objects", GetObjectsAction)
         self.get_shape_client = actionlib.SimpleActionClient("get_shape", GetShapeAction)
@@ -75,6 +75,7 @@ class GetCartPose(smach.State):
 
         res = self.get_objects_client.get_result()
         if not res.objects:
+            rospy.logerr('[cart_collector] no cart entities found')
             return 'cart_not_found'
 
         if res.objects[0].pose.header.frame_id != self.map_frame_name:

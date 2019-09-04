@@ -2,26 +2,28 @@ import smach
 import rospy
 import actionlib
 import std_msgs.msg
+import numpy as np
 
 from tf.transformations import quaternion_from_euler
 
 from ropod_ros_msgs.msg import GetShapeAction, GetShapeGoal
 from ropod_ros_msgs.msg import ObjectList, Position
 from ropod_ros_msgs.srv import ToggleObjectPublisher
+from ropod_ros_msgs.msg import Status
 from maneuver_navigation.msg import Goal as ManeuverNavGoal
 from maneuver_navigation.msg import Feedback as ManeuverNavFeedback
 
 from geometry_msgs.msg import Polygon, Point32, PoseStamped, PoseWithCovarianceStamped
 
 
-from cart_collection_utils import generate_points_in_polygon, filter_points_close_to_polygon, set_dynamic_navigation_params
+from cart_collection_utils import generate_points_in_polygon, filter_points_close_to_polygon, set_dynamic_navigation_params, get_pose_perpendicular_to_edge, send_feedback
 
 class LookForCart(smach.State):
     '''
     Actively looks for the cart in the specified sub area by identifying cart candidates
     and moving to different viewpoints to perceive the candidates fully.
     '''
-    def __init__(self, timeout=5.0,
+    def __init__(self, timeout=50.0,
                 map_frame_name='map',
                 robot_length_m=0.73):
         smach.State.__init__(self,
@@ -33,7 +35,7 @@ class LookForCart(smach.State):
         self.robot_length_m = robot_length_m
         self.cart_entities = None
         self.cart_pose_pub = rospy.Publisher("cart_pose", PoseStamped, queue_size=1)
-        self.toggle_cart_publisher_client = rospy.ServiceProxy('toggle_cart_publisher_srv', ToggleObjectPublisher)
+        self.toggle_cart_publisher_client = rospy.ServiceProxy('ed_toggle_object_publisher_srv', ToggleObjectPublisher)
         self.get_objects_sub = rospy.Subscriber("ed_object_stream", ObjectList, self.entity_callback)
 
         self.feedback = None
@@ -60,10 +62,11 @@ class LookForCart(smach.State):
 
         possible_viewpoints = self.get_viewpoints(userdata.area_shape)
 
-        area_polygon, area_center = self.get_polygon_and_center(userdata.area_shape)
-        resp = self.toggle_cart_publisher_client(publisher_type="carts", area=area_polygon, enable_publisher=True)
+        sub_area_polygon, sub_area_center = self.get_polygon_and_center(userdata.sub_area_shape)
+        resp = self.toggle_cart_publisher_client(publisher_type="carts", area=sub_area_polygon, enable_publisher=True)
 
         if (not resp.success):
+            rospy.logerr('[cart_collector] could not toggle cart publisher')
             return 'cart_not_found'
 
         # Get ropot pose
@@ -73,13 +76,14 @@ class LookForCart(smach.State):
 
         if self.robot_pose is None:
             rospy.logerr("[cart_collector] Precondition for LookForCart not met: Robot pose not available. Aborting.")
-            #return 'timeout'
+            return 'timeout'
 
         # reconfigure to fine grained navigation
         set_dynamic_navigation_params('omni_drive_mode')
 
         viewpoint_idx = 0
         cart_found = False
+        send_new_goal = True
         start_time = rospy.Time.now()
         while (rospy.Time.now() - start_time <= self.timeout):
             # check if we've seen a cart during navigation
@@ -88,6 +92,17 @@ class LookForCart(smach.State):
                 cart_found = True
                 self.nav_cancel_pub.publish(True)
                 break
+
+            # send a new goal
+            if send_new_goal:
+                if viewpoint_idx >= len(possible_viewpoints):
+                    set_dynamic_navigation_params('non_holonomic_mode')
+                    return 'cart_not_found'
+                viewpoint = possible_viewpoints[viewpoint_idx]
+                rospy.loginfo("sending nav goal")
+                nav_goal = self.send_nav_goal(viewpoint, sub_area_center)
+                self.nav_goal_pub.publish(nav_goal)
+                viewpoint_idx += 1
 
             # check if a new goal needs to be sent
             send_new_goal = False
@@ -98,25 +113,20 @@ class LookForCart(smach.State):
                 if self.feedback.status == ManeuverNavFeedback.FAILURE_OBSTACLES:
                     set_dynamic_navigation_params('non_holonomic_mode')
                     send_new_goal = True
+            rospy.sleep(0.1)
 
-            # send a new goal
-            if send_new_goal:
-                self.nav_cancel_pub.publish(True)
-                if viewpoint_idx >= len(possible_viewpoints):
-                    set_dynamic_navigation_params('non_holonomic_mode')
-                    return 'cart_not_found'
-                viewpoint = possible_viewpoints[viewpoint_idx]
-                self.send_nav_goal(viewpoint, area_center)
-                viewpoint_idx += 1
 
         if cart_found:
             if userdata.sub_area_shape is None:
                 rospy.logerr("Sub area shape not available")
                 return 'cart_not_found'
-            cart_pose = get_pose_perpendicular_to_edge(userdata.sub_area_shape, cart_pose)
+            rospy.loginfo("Cart found!")
+            cart_pose = get_pose_perpendicular_to_edge(userdata.sub_area_shape, cart_entity_pose)
             self.cart_pose_pub.publish(cart_pose)
             userdata.cart_pose = cart_pose
             send_feedback(userdata.action_req, userdata.action_server, Status.MOBIDIK_DETECTED)
+            set_dynamic_navigation_params('non_holonomic_mode')
+            return 'cart_found'
         set_dynamic_navigation_params('non_holonomic_mode')
         return 'cart_not_found'
 
@@ -142,7 +152,7 @@ class LookForCart(smach.State):
         viewpoints = generate_points_in_polygon(shape.vertices)
         viewpoints = filter_points_close_to_polygon(shape.vertices,
                                                     viewpoints,
-                                                    (self.robot_length_m / 2.0) + 0.1)
+                                                    (self.robot_length_m / 2.0) + 0.25)
         return viewpoints
 
     def send_nav_goal(self, viewpoint, area_center):
@@ -162,11 +172,11 @@ class LookForCart(smach.State):
         self.feedback = None
         nav_goal = ManeuverNavGoal()
         nav_goal.conf.precise_goal = False
-        nav_goal.conf.use_line_planner = False
+        nav_goal.conf.use_line_planner = True
         nav_goal.conf.append_new_maneuver = False
         nav_goal.start = self.robot_pose
         nav_goal.goal = goal_pose
-        self.nav_goal_pub.publish(nav_goal)
+        return nav_goal
 
 
     def entity_callback(self, msg):
