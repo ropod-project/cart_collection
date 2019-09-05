@@ -16,7 +16,12 @@ from maneuver_navigation.msg import Feedback as ManeuverNavFeedback
 from geometry_msgs.msg import Polygon, Point32, PoseStamped, PoseWithCovarianceStamped
 
 
-from cart_collection_utils import generate_points_in_polygon, filter_points_close_to_polygon, set_dynamic_navigation_params, get_pose_perpendicular_to_edge, send_feedback
+from cart_collection_utils import generate_points_in_polygon, \
+                                  filter_points_close_to_polygon, \
+                                  set_dynamic_navigation_params, \
+                                  get_pose_perpendicular_to_edge, \
+                                  send_feedback, \
+                                  get_edge_closest_to_wall
 
 class LookForCart(smach.State):
     '''
@@ -61,8 +66,14 @@ class LookForCart(smach.State):
             return 'cart_not_found'
 
         possible_viewpoints = self.get_viewpoints(userdata.area_shape)
+        sub_area_polygon = self.get_polygon(userdata.sub_area_shape)
+        v1, v2 = get_edge_closest_to_wall(userdata.area_shape, userdata.sub_area_shape)
+        # look at viewpoint_target from all viewpoints (i.e. this is
+        # used to determine the final orientation of the robot at a given viewpoint
+        viewpoint_target = Position()
+        viewpoint_target.x = (v1.x + v2.x) / 2.0
+        viewpoint_target.y = (v1.y + v2.y) / 2.0
 
-        sub_area_polygon, sub_area_center = self.get_polygon_and_center(userdata.sub_area_shape)
         resp = self.toggle_cart_publisher_client(publisher_type="carts", area=sub_area_polygon, enable_publisher=True)
 
         if (not resp.success):
@@ -76,6 +87,7 @@ class LookForCart(smach.State):
 
         if self.robot_pose is None:
             rospy.logerr("[cart_collector] Precondition for LookForCart not met: Robot pose not available. Aborting.")
+            self.reset()
             return 'timeout'
 
         # reconfigure to fine grained navigation
@@ -96,11 +108,11 @@ class LookForCart(smach.State):
             # send a new goal
             if send_new_goal:
                 if viewpoint_idx >= len(possible_viewpoints):
-                    set_dynamic_navigation_params('non_holonomic_mode')
+                    self.reset()
                     return 'cart_not_found'
                 viewpoint = possible_viewpoints[viewpoint_idx]
                 rospy.loginfo("sending nav goal")
-                nav_goal = self.send_nav_goal(viewpoint, sub_area_center)
+                nav_goal = self.send_nav_goal(viewpoint, viewpoint_target)
                 self.nav_goal_pub.publish(nav_goal)
                 viewpoint_idx += 1
 
@@ -119,33 +131,32 @@ class LookForCart(smach.State):
         if cart_found:
             if userdata.sub_area_shape is None:
                 rospy.logerr("Sub area shape not available")
+                self.reset()
                 return 'cart_not_found'
             rospy.loginfo("Cart found!")
             cart_pose = get_pose_perpendicular_to_edge(userdata.sub_area_shape, cart_entity_pose)
             self.cart_pose_pub.publish(cart_pose)
             userdata.cart_pose = cart_pose
             send_feedback(userdata.action_req, userdata.action_server, Status.MOBIDIK_DETECTED)
-            set_dynamic_navigation_params('non_holonomic_mode')
+            self.reset()
             return 'cart_found'
-        set_dynamic_navigation_params('non_holonomic_mode')
+            self.toggle_cart_publisher_client(enable_publisher=False)
+        self.reset()
         return 'cart_not_found'
 
 
-    def get_polygon_and_center(self, shape):
-        area_center = Position()
-        for v in shape.vertices[:-1]:
-            area_center.x += v.x
-            area_center.y += v.y
-        area_center.x /= (len(shape.vertices) - 1)
-        area_center.y /= (len(shape.vertices) - 1)
+    def reset(self):
+        set_dynamic_navigation_params('non_holonomic_mode')
+        self.toggle_cart_publisher_client(enable_publisher=False)
 
+    def get_polygon(self, shape):
         area_polygon = Polygon()
         for p in shape.vertices:
             point = Point32()
             point.x = p.x
             point.y = p.y
             area_polygon.points.append(point)
-        return area_polygon, area_center
+        return area_polygon
 
     def get_viewpoints(self, shape):
 
@@ -155,13 +166,13 @@ class LookForCart(smach.State):
                                                     (self.robot_length_m / 2.0) + 0.25)
         return viewpoints
 
-    def send_nav_goal(self, viewpoint, area_center):
+    def send_nav_goal(self, viewpoint, viewpoint_target):
         goal_pose = PoseStamped()
         goal_pose.pose.position.x = viewpoint.x
         goal_pose.pose.position.y = viewpoint.y
         goal_pose.header.stamp = rospy.Time.now()
         goal_pose.header.frame_id = self.map_frame_name
-        yaw = np.arctan2((area_center.y - viewpoint.y), (area_center.x - viewpoint.x))
+        yaw = np.arctan2((viewpoint_target.y - viewpoint.y), (viewpoint_target.x - viewpoint.x))
         q = quaternion_from_euler(0.0, 0.0, yaw)
         goal_pose.pose.orientation.x = q[0]
         goal_pose.pose.orientation.y = q[1]
