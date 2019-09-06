@@ -340,12 +340,13 @@ def get_pose_perpendicular_to_wall(area_shape, sub_area_shape, offset_from_edge)
     output_pose.pose.position.y += (offset_from_edge * np.sin(yaw))
     return output_pose
 
-def generate_points_in_triangle(triangle):
+def generate_points_in_triangle(triangle, num_samples=100):
     '''
     Returns a list of points which are contained inside the `triangle`
 
     args:
     triangle: list of ropod_ros_msgs.msg.Position -- triangle defined as a list of three points
+    num_samples: number of samples to generate in the triangle
     '''
 
     ptriangle = []
@@ -356,7 +357,7 @@ def generate_points_in_triangle(triangle):
     ptriangle = ptriangle - origin
     generated_points = []
     # Based on the first non-uniform example here: http://mathworld.wolfram.com/TrianglePointPicking.html
-    for idx in range(50):
+    for idx in range(num_samples):
         a1 = np.random.random()
         a2 = np.random.random()
         p = (ptriangle[1] * a1) + (ptriangle[2] * (1.0 - a1) * a2);
@@ -369,19 +370,20 @@ def generate_points_in_triangle(triangle):
 
 
 
-def generate_points_in_polygon(closed_polygon):
+def generate_points_in_polygon(closed_polygon, num_samples=100):
     '''
     Returns a list of points which are contained inside the `closed_polygon`
 
     args:
     closed_polygon: list of ropod_ros_msgs.msg.Position -- polygon defined as a list of points; the first and last point are identical
+    num_samples: number of samples to generate per triangle of the polygon (i.e. for a rectangle total samples = 2xnum_samples)
     '''
 
     polygon = closed_polygon[:-1]
     generated_points = []
     for idx, p in enumerate(polygon):
         triangle = [p, polygon[(idx+1) % len(polygon)], polygon[(idx+2) % len(polygon)]]
-        triangle_points = generate_points_in_triangle(triangle)
+        triangle_points = generate_points_in_triangle(triangle, num_samples)
         generated_points.extend(triangle_points)
     shuffle(generated_points)
     return generated_points

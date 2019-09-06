@@ -117,7 +117,7 @@ class LookForCart(smach.State):
                 self.nav_cancel_pub.publish(True)
                 break
 
-            if (rospy.Time.now() - nav_goal_start_time) > nav_timeout):
+            if (rospy.Time.now() - nav_goal_start_time) > nav_timeout:
                 send_new_goal = True
 
             # send a new goal
@@ -191,7 +191,7 @@ class LookForCart(smach.State):
         3. too close to the edges of any object
         '''
 
-        viewpoints = generate_points_in_polygon(area_shape.vertices)
+        viewpoints = generate_points_in_polygon(area_shape.vertices, 150)
         viewpoints = filter_points_close_to_polygon(area_shape.vertices,
                                                     viewpoints,
                                                     (self.robot_length_m / 2.0) + 0.25)
