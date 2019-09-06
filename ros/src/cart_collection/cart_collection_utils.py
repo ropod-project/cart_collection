@@ -406,3 +406,29 @@ def filter_points_close_to_polygon(polygon, input_points, distance_threshold):
         if threshold_satisfied:
             filtered_points.append(test_point)
     return filtered_points
+
+def filter_points_close_to_objects(objects, input_points, distance_threshold):
+    '''
+    Returns a list of points which are at least `distance_threshold` away from all `objects`
+
+    args:
+    objects: list of ropod_ros_msgs.msg.Position -- polygon defined as a list of points; the first and last point are identical
+    input_points: list of ropod_ros_msgs.msg.Position
+    distance_threshold: minimum distance (in meter) of filtered points to every edge of the polygon
+    '''
+
+    filtered_points = []
+    for test_point in input_points:
+        threshold_satisfied = True
+        for obj in objects:
+            for idx, p in enumerate(obj.shape.polygon.points):
+                p2 = obj.shape.polygon.points[(idx + 1)%len(obj.shape.polygon.points)]
+                distance = get_distance_to_line(p, p2, test_point)
+                if (distance < distance_threshold):
+                    threshold_satisfied = False
+                    break
+            if not threshold_satisfied:
+                break
+        if threshold_satisfied:
+            filtered_points.append(test_point)
+    return filtered_points

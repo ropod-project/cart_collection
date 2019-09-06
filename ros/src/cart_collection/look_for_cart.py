@@ -6,6 +6,7 @@ import numpy as np
 
 from tf.transformations import quaternion_from_euler
 
+from ropod_ros_msgs.msg import GetObjectsAction, GetObjectsGoal
 from ropod_ros_msgs.msg import GetShapeAction, GetShapeGoal
 from ropod_ros_msgs.msg import ObjectList, Position
 from ropod_ros_msgs.srv import ToggleObjectPublisher
@@ -18,6 +19,7 @@ from geometry_msgs.msg import Polygon, Point32, PoseStamped, PoseWithCovarianceS
 
 from cart_collection_utils import generate_points_in_polygon, \
                                   filter_points_close_to_polygon, \
+                                  filter_points_close_to_objects, \
                                   set_dynamic_navigation_params, \
                                   get_pose_perpendicular_to_edge, \
                                   send_feedback, \
@@ -42,6 +44,7 @@ class LookForCart(smach.State):
         self.cart_pose_pub = rospy.Publisher("cart_pose", PoseStamped, queue_size=1)
         self.toggle_cart_publisher_client = rospy.ServiceProxy('ed_toggle_object_publisher_srv', ToggleObjectPublisher)
         self.get_objects_sub = rospy.Subscriber("ed_object_stream", ObjectList, self.entity_callback)
+        self.get_objects_client = actionlib.SimpleActionClient("get_objects", GetObjectsAction)
 
         self.feedback = None
         self.robot_pose = None
@@ -64,8 +67,22 @@ class LookForCart(smach.State):
         if userdata.area_shape is None:
             rospy.logerr("Sub area shape not available")
             return 'cart_not_found'
+        obj_action_server_available = self.get_objects_client.wait_for_server(timeout=self.timeout)
+        if not obj_action_server_available:
+            rospy.logwarn("[cart_collector] Cannot get entities while looking for cart")
 
-        possible_viewpoints = self.get_viewpoints(userdata.area_shape)
+        goal = GetObjectsGoal()
+        goal.area_id = userdata.cart_area
+        goal.area_type = 'corridor'
+        goal.type = '' # get all entities
+        self.get_objects_client.send_goal(goal)
+        result = self.get_objects_client.wait_for_result(timeout=self.timeout)
+        if not result:
+            rospy.logwarn("[cart_collector] Did not get any entities while looking for cart")
+
+        res = self.get_objects_client.get_result()
+
+        possible_viewpoints = self.get_viewpoints(userdata.area_shape, res.objects)
         sub_area_polygon = self.get_polygon(userdata.sub_area_shape)
         v1, v2 = get_edge_closest_to_wall(userdata.area_shape, userdata.sub_area_shape)
         # look at viewpoint_target from all viewpoints (i.e. this is
@@ -158,10 +175,13 @@ class LookForCart(smach.State):
             area_polygon.points.append(point)
         return area_polygon
 
-    def get_viewpoints(self, shape):
+    def get_viewpoints(self, shape, objects):
 
         viewpoints = generate_points_in_polygon(shape.vertices)
         viewpoints = filter_points_close_to_polygon(shape.vertices,
+                                                    viewpoints,
+                                                    (self.robot_length_m / 2.0) + 0.25)
+        viewpoints = filter_points_close_to_objects(objects,
                                                     viewpoints,
                                                     (self.robot_length_m / 2.0) + 0.25)
         return viewpoints
