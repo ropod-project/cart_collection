@@ -67,9 +67,10 @@ class LookForCart(smach.State):
     def execute(self, userdata):
         self.cart_entities = None
 
-        if userdata.area_shape is None:
-            rospy.logerr("Sub area shape not available")
+        if userdata.area_shape is None or userdata.sub_are_shape:
+            rospy.logerr("Area or sub area shape not available")
             return 'cart_not_found'
+
         obj_action_server_available = self.get_objects_client.wait_for_server(timeout=self.timeout)
         if not obj_action_server_available:
             rospy.logwarn("[cart_collector] Cannot get entities while looking for cart")
@@ -129,6 +130,7 @@ class LookForCart(smach.State):
                 possible_viewpoints = self.get_viewpoints(userdata.area_shape, userdata.sub_area_shape, entities)
                 if len(possible_viewpoints) == 0:
                     rospy.logerr('Could not generate any more viewpoints')
+                    self.reset()
                     return 'cart_not_found'
                 # pick the first one
                 viewpoint = possible_viewpoints[0]
@@ -151,10 +153,6 @@ class LookForCart(smach.State):
 
 
         if cart_found:
-            if userdata.sub_area_shape is None:
-                rospy.logerr("Sub area shape not available")
-                self.reset()
-                return 'cart_not_found'
             rospy.loginfo("Cart found!")
             cart_pose = get_pose_perpendicular_to_edge(userdata.sub_area_shape, cart_entity_pose)
             self.cart_pose_pub.publish(cart_pose)
@@ -162,7 +160,6 @@ class LookForCart(smach.State):
             send_feedback(userdata.action_req, userdata.action_server, Status.MOBIDIK_DETECTED)
             self.reset()
             return 'cart_found'
-            self.toggle_cart_publisher_client(enable_publisher=False)
         self.reset()
         return 'cart_not_found'
 
