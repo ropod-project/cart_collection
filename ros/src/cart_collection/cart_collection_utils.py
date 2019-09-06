@@ -1,4 +1,5 @@
 import math
+from random import shuffle
 import numpy as np
 import yaml
 
@@ -355,7 +356,7 @@ def generate_points_in_triangle(triangle):
     ptriangle = ptriangle - origin
     generated_points = []
     # Based on the first non-uniform example here: http://mathworld.wolfram.com/TrianglePointPicking.html
-    for idx in range(60):
+    for idx in range(120):
         a1 = np.random.random()
         a2 = np.random.random()
         p = (ptriangle[1] * a1) + (ptriangle[2] * (1.0 - a1) * a2);
@@ -382,6 +383,7 @@ def generate_points_in_polygon(closed_polygon):
         triangle = [p, polygon[(idx+1) % len(polygon)], polygon[(idx+2) % len(polygon)]]
         triangle_points = generate_points_in_triangle(triangle)
         generated_points.extend(triangle_points)
+    shuffle(generated_points)
     return generated_points
 
 def filter_points_close_to_polygon(polygon, input_points, distance_threshold):
@@ -430,5 +432,21 @@ def filter_points_close_to_objects(objects, input_points, distance_threshold):
             if not threshold_satisfied:
                 break
         if threshold_satisfied:
+            filtered_points.append(test_point)
+    return filtered_points
+
+def filter_points_in_polygon(polygon, input_points):
+    '''
+    Returns a list of points which are not inside `polygon`
+
+    args:
+    polygon: list of ropod_ros_msgs.msg.Position -- polygon defined as a list of points; the first and last point are identical
+    input_points: list of ropod_ros_msgs.msg.Position
+    distance_threshold: minimum distance (in meter) of filtered points to every edge of the polygon
+    '''
+
+    filtered_points = []
+    for test_point in input_points:
+        if not is_point_in_polygon(test_point, polygon):
             filtered_points.append(test_point)
     return filtered_points

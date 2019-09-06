@@ -30,7 +30,7 @@ class LookForCart(smach.State):
     Actively looks for the cart in the specified sub area by identifying cart candidates
     and moving to different viewpoints to perceive the candidates fully.
     '''
-    def __init__(self, timeout=50.0,
+    def __init__(self, timeout=90.0,
                 map_frame_name='map',
                 robot_length_m=0.73):
         smach.State.__init__(self,
@@ -203,7 +203,7 @@ class LookForCart(smach.State):
         self.feedback = None
         nav_goal = ManeuverNavGoal()
         nav_goal.conf.precise_goal = False
-        nav_goal.conf.use_line_planner = True
+        nav_goal.conf.use_line_planner = False
         nav_goal.conf.append_new_maneuver = False
         nav_goal.start = self.robot_pose
         nav_goal.goal = goal_pose

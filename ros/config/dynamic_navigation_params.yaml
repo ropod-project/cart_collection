@@ -7,7 +7,7 @@ omni_drive_mode:
     xy_goal_tolerance: 0.15
     yaw_goal_tolerance: 0.1
 non_holonomic_mode:
-    max_vel_x: 0.0
+    max_vel_y: 0.0
     weight_kinematics_nh: 1000
     weight_kinematics_forward_drive: 1
     xy_goal_tolerance: 0.09
