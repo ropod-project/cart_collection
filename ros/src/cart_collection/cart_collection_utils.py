@@ -1,4 +1,5 @@
 import math
+from random import shuffle
 import numpy as np
 import yaml
 
@@ -226,7 +227,7 @@ def get_pose_perpendicular_to_edge(shape, input_pose):
     the inside of the polygon defined by `shape`.
 
     args:
-    shape: list of ropod_ros_msgs.msg.Position -- polygon defined by list of points
+    shape: ropod_ros_msgs.msg.Shape -- polygon defined by list of points
     input_pose: geometry_msgs.msg.PoseStamped -- input pose
     '''
     closest_edge_idx = 0
@@ -272,21 +273,15 @@ def get_pose_perpendicular_to_edge(shape, input_pose):
 
     return output_pose
 
-
-def get_pose_perpendicular_to_wall(area_shape, sub_area_shape, offset_from_edge):
+def get_edge_closest_to_wall(area_shape, sub_area_shape):
     '''
-    Returns a pose whose orientation best aligns with the normal
-    of the edge of the sub area which is closest to an edge of the area, with
-    the position offset from the edge by `offset_from_edge`.
-    The orientation of the output pose will face the inside of the polygon defined by
-    `sub_area_shape`.
-    By finding the edge of the sub area closest to an edge of the area, we are effectively
-    finding the edge closest to a wall.
+    Returns the edge of the `sub_area_shape` (defined by two points), which is closest to
+    an edge of `area_shape`. Effectively, this finds the edge of the sub area which is closest
+    to a wall
 
     args:
     area_shape: list of ropod_ros_msgs.msg.Position -- area polygon defined by list of points
     sub_area_shape: list of ropod_ros_msgs.msg.Position -- sub area polygon defined by list of points
-    offset_from_edge: float -- offset (in meters) of the pose from the selected edge of the sub area shape
     '''
     # find the edge of the sub-area which is closest to one of the
     # edges of the area. We assume this to be the edge closest to a wall
@@ -306,8 +301,26 @@ def get_pose_perpendicular_to_wall(area_shape, sub_area_shape, offset_from_edge)
             if dist < min_distance:
                 min_distance = dist
                 wall_edge_idx = idx2
-    v1 = sub_area_shape.vertices[wall_edge_idx]
-    v2 = sub_area_shape.vertices[wall_edge_idx + 1]
+    return sub_area_shape.vertices[wall_edge_idx], sub_area_shape.vertices[wall_edge_idx + 1]
+
+
+def get_pose_perpendicular_to_wall(area_shape, sub_area_shape, offset_from_edge):
+    '''
+    Returns a pose whose orientation best aligns with the normal
+    of the edge of the sub area which is closest to an edge of the area, with
+    the position offset from the edge by `offset_from_edge`.
+    The orientation of the output pose will face the inside of the polygon defined by
+    `sub_area_shape`.
+    By finding the edge of the sub area closest to an edge of the area, we are effectively
+    finding the edge closest to a wall.
+
+    args:
+    area_shape: list of ropod_ros_msgs.msg.Position -- area polygon defined by list of points
+    sub_area_shape: list of ropod_ros_msgs.msg.Position -- sub area polygon defined by list of points
+    offset_from_edge: float -- offset (in meters) of the pose from the selected edge of the sub area shape
+    '''
+
+    v1, v2 = get_edge_closest_to_wall(area_shape, sub_area_shape)
 
     pose = PoseStamped()
     pose.pose.position.x = (v1.x + v2.x) / 2.0
@@ -326,3 +339,118 @@ def get_pose_perpendicular_to_wall(area_shape, sub_area_shape, offset_from_edge)
     output_pose.pose.position.x += (offset_from_edge * np.cos(yaw))
     output_pose.pose.position.y += (offset_from_edge * np.sin(yaw))
     return output_pose
+
+def generate_points_in_triangle(triangle, num_samples=100):
+    '''
+    Returns a list of points which are contained inside the `triangle`
+
+    args:
+    triangle: list of ropod_ros_msgs.msg.Position -- triangle defined as a list of three points
+    num_samples: number of samples to generate in the triangle
+    '''
+
+    ptriangle = []
+    for p in triangle:
+        ptriangle.append([p.x, p.y])
+    ptriangle = np.array(ptriangle)
+    origin = ptriangle[0]
+    ptriangle = ptriangle - origin
+    generated_points = []
+    # Based on the first non-uniform example here: http://mathworld.wolfram.com/TrianglePointPicking.html
+    for idx in range(num_samples):
+        a1 = np.random.random()
+        a2 = np.random.random()
+        p = (ptriangle[1] * a1) + (ptriangle[2] * (1.0 - a1) * a2);
+        p += origin
+        rosp = ropod_ros_msgs.msg.Position()
+        rosp.x = p[0]
+        rosp.y = p[1]
+        generated_points.append(rosp)
+    return generated_points
+
+
+
+def generate_points_in_polygon(closed_polygon, num_samples=100):
+    '''
+    Returns a list of points which are contained inside the `closed_polygon`
+
+    args:
+    closed_polygon: list of ropod_ros_msgs.msg.Position -- polygon defined as a list of points; the first and last point are identical
+    num_samples: number of samples to generate per triangle of the polygon (i.e. for a rectangle total samples = 2xnum_samples)
+    '''
+
+    polygon = closed_polygon[:-1]
+    generated_points = []
+    for idx, p in enumerate(polygon):
+        triangle = [p, polygon[(idx+1) % len(polygon)], polygon[(idx+2) % len(polygon)]]
+        triangle_points = generate_points_in_triangle(triangle, num_samples)
+        generated_points.extend(triangle_points)
+    shuffle(generated_points)
+    return generated_points
+
+def filter_points_close_to_polygon(polygon, input_points, distance_threshold):
+    '''
+    Returns a list of points which are at least `distance_threshold` away from all edges of the `polygon`
+
+    args:
+    polygon: list of ropod_ros_msgs.msg.Position -- polygon defined as a list of points; the first and last point are identical
+    input_points: list of ropod_ros_msgs.msg.Position
+    distance_threshold: minimum distance (in meter) of filtered points to every edge of the polygon
+    '''
+
+    filtered_points = []
+    for test_point in input_points:
+        threshold_satisfied = True
+        for idx, p in enumerate(polygon[:-1]):
+            p2 = polygon[idx + 1]
+            distance = get_distance_to_line(p, p2, test_point)
+            if (distance < distance_threshold):
+                threshold_satisfied = False
+                break
+        if threshold_satisfied:
+            filtered_points.append(test_point)
+    return filtered_points
+
+def filter_points_close_to_objects(objects, input_points, distance_threshold):
+    '''
+    Returns a list of points which are at least `distance_threshold` away from all `objects`
+
+    args:
+    objects: list of ropod_ros_msgs.msg.Position -- polygon defined as a list of points; the first and last point are identical
+    input_points: list of ropod_ros_msgs.msg.Position
+    distance_threshold: minimum distance (in meter) of filtered points to every edge of the polygon
+    '''
+
+    if (objects is None):
+        return input_points
+    filtered_points = []
+    for test_point in input_points:
+        threshold_satisfied = True
+        for obj in objects:
+            for idx, p in enumerate(obj.shape.polygon.points):
+                p2 = obj.shape.polygon.points[(idx + 1)%len(obj.shape.polygon.points)]
+                distance = get_distance_to_line(p, p2, test_point)
+                if (distance < distance_threshold):
+                    threshold_satisfied = False
+                    break
+            if not threshold_satisfied:
+                break
+        if threshold_satisfied:
+            filtered_points.append(test_point)
+    return filtered_points
+
+def filter_points_in_polygon(polygon, input_points):
+    '''
+    Returns a list of points which are not inside `polygon`
+
+    args:
+    polygon: list of ropod_ros_msgs.msg.Position -- polygon defined as a list of points; the first and last point are identical
+    input_points: list of ropod_ros_msgs.msg.Position
+    distance_threshold: minimum distance (in meter) of filtered points to every edge of the polygon
+    '''
+
+    filtered_points = []
+    for test_point in input_points:
+        if not is_point_in_polygon(test_point, polygon):
+            filtered_points.append(test_point)
+    return filtered_points

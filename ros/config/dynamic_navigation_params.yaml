@@ -1,13 +1,17 @@
 # based on:
 # https://github.com/b-it-bots/mas_common_robotics/tree/kinetic/mcr_common/mcr_dynamic_reconfigure_client/
 omni_drive_mode:
+    max_vel_x: 0.3
     max_vel_y: 0.5
+    max_vel_theta: 0.3
     weight_kinematics_nh: 0
     weight_kinematics_forward_drive: 0
     xy_goal_tolerance: 0.15
     yaw_goal_tolerance: 0.1
 non_holonomic_mode:
-    max_vel_x: 0.0
+    max_vel_x: 0.5
+    max_vel_y: 0.0
+    max_vel_theta: 0.5
     weight_kinematics_nh: 1000
     weight_kinematics_forward_drive: 1
     xy_goal_tolerance: 0.09
