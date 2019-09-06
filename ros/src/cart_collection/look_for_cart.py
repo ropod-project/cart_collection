@@ -20,6 +20,7 @@ from geometry_msgs.msg import Polygon, Point32, PoseStamped, PoseWithCovarianceS
 from cart_collection_utils import generate_points_in_polygon, \
                                   filter_points_close_to_polygon, \
                                   filter_points_close_to_objects, \
+                                  filter_points_in_polygon, \
                                   set_dynamic_navigation_params, \
                                   get_pose_perpendicular_to_edge, \
                                   send_feedback, \
@@ -82,7 +83,7 @@ class LookForCart(smach.State):
 
         res = self.get_objects_client.get_result()
 
-        possible_viewpoints = self.get_viewpoints(userdata.area_shape, res.objects)
+        possible_viewpoints = self.get_viewpoints(userdata.area_shape, userdata.sub_area_shape, res.objects)
         sub_area_polygon = self.get_polygon(userdata.sub_area_shape)
         v1, v2 = get_edge_closest_to_wall(userdata.area_shape, userdata.sub_area_shape)
         # look at viewpoint_target from all viewpoints (i.e. this is
@@ -175,15 +176,17 @@ class LookForCart(smach.State):
             area_polygon.points.append(point)
         return area_polygon
 
-    def get_viewpoints(self, shape, objects):
+    def get_viewpoints(self, area_shape, sub_area_shape, objects):
 
-        viewpoints = generate_points_in_polygon(shape.vertices)
-        viewpoints = filter_points_close_to_polygon(shape.vertices,
+        viewpoints = generate_points_in_polygon(area_shape.vertices)
+        viewpoints = filter_points_close_to_polygon(area_shape.vertices,
                                                     viewpoints,
                                                     (self.robot_length_m / 2.0) + 0.25)
         viewpoints = filter_points_close_to_objects(objects,
                                                     viewpoints,
                                                     (self.robot_length_m / 2.0) + 0.25)
+        viewpoints = filter_points_in_polygon(sub_area_shape.vertices,
+                                              viewpoints)
         return viewpoints
 
     def send_nav_goal(self, viewpoint, viewpoint_target):
