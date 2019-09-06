@@ -356,7 +356,7 @@ def generate_points_in_triangle(triangle):
     ptriangle = ptriangle - origin
     generated_points = []
     # Based on the first non-uniform example here: http://mathworld.wolfram.com/TrianglePointPicking.html
-    for idx in range(120):
+    for idx in range(50):
         a1 = np.random.random()
         a2 = np.random.random()
         p = (ptriangle[1] * a1) + (ptriangle[2] * (1.0 - a1) * a2);
@@ -419,6 +419,8 @@ def filter_points_close_to_objects(objects, input_points, distance_threshold):
     distance_threshold: minimum distance (in meter) of filtered points to every edge of the polygon
     '''
 
+    if (objects is None):
+        return input_points
     filtered_points = []
     for test_point in input_points:
         threshold_satisfied = True

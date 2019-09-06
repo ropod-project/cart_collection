@@ -28,8 +28,10 @@ from cart_collection_utils import generate_points_in_polygon, \
 
 class LookForCart(smach.State):
     '''
-    Actively looks for the cart in the specified sub area by identifying cart candidates
-    and moving to different viewpoints to perceive the candidates fully.
+    Actively looks for the cart in the specified sub area by selecting random viewpoints within the cart area.
+    The viewpoints are selected such that they point towards the target subarea and are not too close to walls
+    or other obstacles.
+    A future improvement is to select viewpoints such that they are oriented towards cart candidates.
     '''
     def __init__(self, timeout=90.0,
                 map_frame_name='map',
@@ -72,18 +74,7 @@ class LookForCart(smach.State):
         if not obj_action_server_available:
             rospy.logwarn("[cart_collector] Cannot get entities while looking for cart")
 
-        goal = GetObjectsGoal()
-        goal.area_id = userdata.cart_area
-        goal.area_type = 'corridor'
-        goal.type = '' # get all entities
-        self.get_objects_client.send_goal(goal)
-        result = self.get_objects_client.wait_for_result(timeout=self.timeout)
-        if not result:
-            rospy.logwarn("[cart_collector] Did not get any entities while looking for cart")
 
-        res = self.get_objects_client.get_result()
-
-        possible_viewpoints = self.get_viewpoints(userdata.area_shape, userdata.sub_area_shape, res.objects)
         sub_area_polygon = self.get_polygon(userdata.sub_area_shape)
         v1, v2 = get_edge_closest_to_wall(userdata.area_shape, userdata.sub_area_shape)
         # look at viewpoint_target from all viewpoints (i.e. this is
@@ -110,11 +101,14 @@ class LookForCart(smach.State):
 
         # reconfigure to fine grained navigation
         set_dynamic_navigation_params('omni_drive_mode')
+        send_feedback(userdata.action_req, userdata.action_server, Status.ACTIVE_SEARCH_MODE)
 
-        viewpoint_idx = 0
+        viewpoint_idx = 1
         cart_found = False
         send_new_goal = True
         start_time = rospy.Time.now()
+        nav_goal_start_time = rospy.Time.now()
+        nav_timeout = rospy.Duration(20.0)
         while (rospy.Time.now() - start_time <= self.timeout):
             # check if we've seen a cart during navigation
             if self.cart_entities is not None and len(self.cart_entities.objects) > 0:
@@ -123,14 +117,24 @@ class LookForCart(smach.State):
                 self.nav_cancel_pub.publish(True)
                 break
 
+            if (rospy.Time.now() - nav_goal_start_time) > nav_timeout):
+                send_new_goal = True
+
             # send a new goal
             if send_new_goal:
-                if viewpoint_idx >= len(possible_viewpoints):
-                    self.reset()
+                rospy.loginfo("Trying viewpoint %d" % viewpoint_idx)
+                # get obstacles
+                entities = self.get_entities(userdata.cart_area)
+                # generate some viewpoints
+                possible_viewpoints = self.get_viewpoints(userdata.area_shape, userdata.sub_area_shape, entities)
+                if len(possible_viewpoints) == 0:
+                    rospy.logerr('Could not generate any more viewpoints')
                     return 'cart_not_found'
-                viewpoint = possible_viewpoints[viewpoint_idx]
+                # pick the first one
+                viewpoint = possible_viewpoints[0]
                 rospy.loginfo("sending nav goal")
                 nav_goal = self.send_nav_goal(viewpoint, viewpoint_target)
+                nav_goal_start_time = rospy.Time.now()
                 self.nav_goal_pub.publish(nav_goal)
                 viewpoint_idx += 1
 
@@ -168,6 +172,9 @@ class LookForCart(smach.State):
         self.toggle_cart_publisher_client(enable_publisher=False)
 
     def get_polygon(self, shape):
+        '''
+        Returns geometry_msgs.msg.Polygon from ropod_ros_msgs.msg.Position[]
+        '''
         area_polygon = Polygon()
         for p in shape.vertices:
             point = Point32()
@@ -177,6 +184,12 @@ class LookForCart(smach.State):
         return area_polygon
 
     def get_viewpoints(self, area_shape, sub_area_shape, objects):
+        '''
+        Returns list of viewpoints within area_shape excluding those which are:
+        1. too close to the edges of area_shape
+        2. inside sub_area_shape
+        3. too close to the edges of any object
+        '''
 
         viewpoints = generate_points_in_polygon(area_shape.vertices)
         viewpoints = filter_points_close_to_polygon(area_shape.vertices,
@@ -190,6 +203,10 @@ class LookForCart(smach.State):
         return viewpoints
 
     def send_nav_goal(self, viewpoint, viewpoint_target):
+        '''
+        Sends navigation goal to position defined by viewpoint and orientation
+        defined by line from viewpoint to viewpoint_target
+        '''
         goal_pose = PoseStamped()
         goal_pose.pose.position.x = viewpoint.x
         goal_pose.pose.position.y = viewpoint.y
@@ -224,3 +241,19 @@ class LookForCart(smach.State):
             self.robot_pose = PoseStamped()
         self.robot_pose.header = msg.header
         self.robot_pose.pose = msg.pose.pose
+
+    def get_entities(self, cart_area):
+        '''
+        Returns list of all entities within the cart area
+        '''
+        goal = GetObjectsGoal()
+        goal.area_id = cart_area
+        goal.area_type = 'corridor'
+        goal.type = '' # get all entities
+        self.get_objects_client.send_goal(goal)
+        result = self.get_objects_client.wait_for_result(timeout=self.timeout)
+        if not result:
+            rospy.logwarn("[cart_collector] Did not get any entities while looking for cart")
+
+        res = self.get_objects_client.get_result()
+        return res.objects
