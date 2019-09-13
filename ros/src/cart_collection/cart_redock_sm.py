@@ -36,7 +36,7 @@ class CartRedockSM(StateMachine):
         StateMachine.__init__(self, outcomes=['done', 'failed'])
 
         # align and approach cart state params
-        offset_to_approach_pose_m = float(rospy.get_param('~offset_to_approach_pose_m', '0.55'))
+        offset_to_approach_pose_m = float(rospy.get_param('~redock_offset_to_approach_pose_m', '0.55'))
         backward_vel_docking_ms = float(rospy.get_param('~backward_vel_docking_ms', '0.1'))
         max_rot_vel_docking_rads = float(rospy.get_param('~max_rot_vel_docking_rads', '0.1'))
         approach_x_thresh_m = float(rospy.get_param('~approach_x_thresh_m', '0.05'))
