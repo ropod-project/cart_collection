@@ -56,6 +56,9 @@
         <!-- get setpoint in post undock area state params-->
         <remap from="cart_post_undock_pose" to="/cart_collection/cart_post_undock_pose" />
         <param name="post_undock_forward_distance_m" type="double" value="0.7" />
+
+        <!-- redock params-->
+        <param name="redock_offset_to_approach_pose_m" type="double" value="0.55" />
     </node>
     <include file="$(find ed)/launch/ed.launch" />
     <include file="$(find cart_detection)/ros/launch/cart_plane_detector.launch" />

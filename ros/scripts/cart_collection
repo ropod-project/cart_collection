@@ -11,6 +11,7 @@ from ropod.ftsm.ftsm_base import FTSMBase, DependMonitorTypes
 
 from cart_collection.cart_collection_sm import CartCollectionSM
 from cart_drop_off.cart_drop_off_sm import CartDropOffSM
+from cart_collection.cart_redock_sm import CartRedockSM
 
 from cart_collection.cart_collection_utils import send_feedback
 
@@ -62,15 +63,17 @@ class CartCollection(FTSMBase):
 
     def collect_cart_server_cb(self, action_request):
         action_type = action_request.action.type
-        if action_type != 'DOCK' and action_type != 'UNDOCK':
+        if action_type != 'DOCK' and action_type != 'UNDOCK' and action_type != 'REDOCK':
             rospy.logerr('[cart_collection] Unknown action "{0}" received; ignoring request'.format(action_type))
             self.collect_cart_server.set_aborted()
             return
         if (len(action_request.action.areas) == 0 or
             len(action_request.action.areas[0].sub_areas) == 0):
-            rospy.logerr('[cart_collection] A sub_area has to be specified for (un)docking; aborting request')
-            self.collect_cart_server.set_aborted()
-            return
+            # no need to specify area / sub area for REDOCK
+            if (action_type == 'DOCK' or action_type == 'UNDOCK'):
+                rospy.logerr('[cart_collection] A sub_area has to be specified for (un)docking; aborting request')
+                self.collect_cart_server.set_aborted()
+                return
 
         # setting self.current_action allows to
         # transition to the running state
@@ -86,6 +89,9 @@ class CartCollection(FTSMBase):
                     cart_sub_area=action_request.action.areas[0].sub_areas[0].id,
                     action_req=action_request.action,
                     action_server=self.collect_cart_server)
+        elif (action_type == 'REDOCK'):
+            sm = CartRedockSM(action_req=action_request.action,
+                              action_server=self.collect_cart_server)
 
         sm.register_transition_cb(self.transition_cb, [action_request])
         sm.register_start_cb(self.start_cb, [action_request])
@@ -93,7 +99,7 @@ class CartCollection(FTSMBase):
         res = sm.execute()
         result = DockResult()
         if (res == 'failed'):
-            if (action_type == 'DOCK'):
+            if (action_type == 'DOCK' or action_type == 'REDOCK'):
                 feedback_status = Status.DOCKING_SEQUENCE_FAILED
             else:
                 feedback_status = Status.UNDOCKING_SEQUENCE_FAILED
@@ -101,7 +107,7 @@ class CartCollection(FTSMBase):
             result.success = False
             self.collect_cart_server.set_succeeded(result=result)
         else:
-            if (action_type == 'DOCK'):
+            if (action_type == 'DOCK' or action_type == 'REDOCK'):
                 feedback_status = Status.DOCKING_SEQUENCE_SUCCEEDED
             else:
                 feedback_status = Status.UNDOCKING_SEQUENCE_SUCCEEDED
