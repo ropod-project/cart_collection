@@ -22,6 +22,7 @@ class UncoupleFromCart(smach.State):
                                                        self.docking_feedback_callback)
         self.nav_load_attached_pub = rospy.Publisher("set_load_attached",
                                                      Bool, queue_size=1)
+        self.toggle_cart_publisher_client = rospy.ServiceProxy('toggle_cart_publisher_srv', ToggleObjectPublisher)
         self.docking_feedback = None
         self.uncoupling_attempts = 0
         self.max_uncoupling_attempts = max_uncoupling_attempts
@@ -45,6 +46,7 @@ class UncoupleFromCart(smach.State):
                     attached_msg = Bool()
                     attached_msg.data = False
                     self.nav_load_attached_pub.publish(attached_msg)
+                    resp = self.toggle_cart_publisher_client(enable_publisher=False)
                     return 'uncoupling_succeeded'
             else:
                 rospy.sleep(0.1)
