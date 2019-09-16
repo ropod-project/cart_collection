@@ -70,9 +70,7 @@ class AlignAndApproachCart(smach.State):
             rospy.sleep(0.1)
 
         if self.pose_reached:
-            resp = self.toggle_cart_publisher_client(enable_publisher=False)
             return 'approach_succeeded'
-        resp = self.toggle_cart_publisher_client(enable_publisher=False)
         return 'timeout'
 
     def cart_front_pose_callback(self, msg):
