@@ -67,7 +67,7 @@ class LookForCart(smach.State):
     def execute(self, userdata):
         self.cart_entities = None
 
-        if userdata.area_shape is None or userdata.sub_are_shape:
+        if userdata.area_shape is None or userdata.sub_area_shape is None:
             rospy.logerr("Area or sub area shape not available")
             return 'cart_not_found'
 

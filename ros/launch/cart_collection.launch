@@ -27,7 +27,7 @@
         <remap from="toggle_cart_publisher_srv" to="/cart_plane_detector/toggle_object_publisher" />
         <remap from="cmd_vel" to="/ropod/cmd_vel" />
         <remap from="cart_approach_pose" to="/cart_collection/cart_approach_pose" />
-        <param name="offset_to_approach_pose_m" type="double" value="0.48" />
+        <param name="offset_to_approach_pose_m" type="double" value="0.56" />
         <param name="backward_vel_docking_ms" type="double" value="0.1" />
         <param name="max_rot_vel_docking_rads" type="double" value="0.1" />
         <param name="approach_x_thresh_m" type="double" value="0.05" />
@@ -56,9 +56,6 @@
         <!-- get setpoint in post undock area state params-->
         <remap from="cart_post_undock_pose" to="/cart_collection/cart_post_undock_pose" />
         <param name="post_undock_forward_distance_m" type="double" value="0.7" />
-
-        <!-- redock params-->
-        <param name="redock_offset_to_approach_pose_m" type="double" value="0.55" />
     </node>
     <include file="$(find ed)/launch/ed.launch" />
     <include file="$(find cart_detection)/ros/launch/cart_plane_detector.launch" />
