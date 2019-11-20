@@ -28,17 +28,17 @@
         <remap from="cmd_vel" to="/ropod/cmd_vel" />
         <remap from="cart_approach_pose" to="/cart_collection/cart_approach_pose" />
         <param name="offset_to_approach_pose_m" type="double" value="0.56" />
-        <param name="backward_vel_docking_ms" type="double" value="0.1" />
+        <param name="backward_vel_docking_ms" type="double" value="0.11" />
         <param name="max_rot_vel_docking_rads" type="double" value="0.1" />
-        <param name="approach_x_thresh_m" type="double" value="0.05" />
-        <param name="approach_y_thresh_m" type="double" value="0.05" />
+        <param name="approach_x_thresh_m" type="double" value="0.03" />
+        <param name="approach_y_thresh_m" type="double" value="0.04" />
         <param name="approach_yaw_thresh_rad" type="double" value="0.1" />
 
         <!-- couple to cart state params-->
         <remap from="docking_cmd" to="/ropod/ropod_low_level_control/cmd_dock" />
         <remap from="docking_feedback" to="/ropod/ropod_low_level_control/dockingFeedback" />
         <remap from="set_load_attached" to="/route_navigation/set_load_attached" />
-        <param name="max_coupling_attempts" type="int" value="3" />
+        <param name="max_coupling_attempts" type="int" value="2" />
 
         <!-- get setpoint in post dock area state params-->
         <remap from="cart_post_dock_pose" to="/cart_collection/cart_post_dock_pose" />
