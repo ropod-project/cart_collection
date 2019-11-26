@@ -3,6 +3,7 @@ import rospy
 
 from std_msgs.msg import Bool
 from ropod_ros_msgs.msg import DockingCommand, DockingFeedback
+from ropod_ros_msgs.srv import ToggleObjectPublisher
 
 class UncoupleFromCart(smach.State):
     '''
