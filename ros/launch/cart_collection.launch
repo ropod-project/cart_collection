@@ -27,7 +27,7 @@
         <remap from="toggle_cart_publisher_srv" to="/cart_plane_detector/toggle_object_publisher" />
         <remap from="cmd_vel" to="/ropod/cmd_vel" />
         <remap from="cart_approach_pose" to="/cart_collection/cart_approach_pose" />
-        <param name="offset_to_approach_pose_m" type="double" value="0.56" />
+        <param name="offset_to_approach_pose_m" type="double" value="0.42" />
         <param name="backward_vel_docking_ms" type="double" value="0.11" />
         <param name="max_rot_vel_docking_rads" type="double" value="0.1" />
         <param name="approach_x_thresh_m" type="double" value="0.03" />

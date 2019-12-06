@@ -188,7 +188,7 @@ class LookForCart(smach.State):
         3. too close to the edges of any object
         '''
 
-        viewpoints = generate_points_in_polygon(area_shape.vertices, 150)
+        viewpoints = generate_points_in_polygon(area_shape.vertices, 600)
         viewpoints = filter_points_close_to_polygon(area_shape.vertices,
                                                     viewpoints,
                                                     (self.robot_length_m / 2.0) + 0.25)
