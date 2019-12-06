@@ -3,6 +3,7 @@ from smach import StateMachine
 
 from cart_collection.align_and_approach_cart import AlignAndApproachCart
 from cart_collection.couple_to_cart import CoupleToCart
+from cart_drop_off.uncouple_from_cart import UncoupleFromCart
 
 
 class CartRedockSM(StateMachine):
@@ -36,7 +37,7 @@ class CartRedockSM(StateMachine):
         StateMachine.__init__(self, outcomes=['done', 'failed'])
 
         # align and approach cart state params
-        offset_to_approach_pose_m = float(rospy.get_param('~redock_offset_to_approach_pose_m', '0.55'))
+        offset_to_approach_pose_m = float(rospy.get_param('~offset_to_approach_pose_m', '0.55'))
         backward_vel_docking_ms = float(rospy.get_param('~backward_vel_docking_ms', '0.1'))
         max_rot_vel_docking_rads = float(rospy.get_param('~max_rot_vel_docking_rads', '0.1'))
         approach_x_thresh_m = float(rospy.get_param('~approach_x_thresh_m', '0.05'))
@@ -56,10 +57,15 @@ class CartRedockSM(StateMachine):
                                                                              approach_x_thresh_m=approach_x_thresh_m,
                                                                              approach_y_thresh_m=approach_y_thresh_m,
                                                                              approach_yaw_thresh_rad=approach_yaw_thresh_rad),
-                             transitions={'approach_succeeded': 'COUPLE_TO_CART',
+                             transitions={'approach_succeeded': 'UNCOUPLE_FROM_CART',
                                           'cart_not_found': 'failed',
                                           'cart_pose_publisher_not_available': 'failed',
                                           'timeout': 'ALIGN_AND_APPROACH_CART'})
+
+            StateMachine.add('UNCOUPLE_FROM_CART', UncoupleFromCart(),
+                             transitions={'uncoupling_succeeded': 'COUPLE_TO_CART',
+                                          'uncoupling_failed': 'COUPLE_TO_CART',
+                                          'cannot_switch_to_robot_mode': 'COUPLE_TO_CART'})
 
             StateMachine.add('COUPLE_TO_CART', CoupleToCart(max_coupling_attempts=max_coupling_attempts),
                              transitions={'coupling_succeeded': 'done',
