@@ -55,8 +55,13 @@ class GoToPreDockSetpoint(smach.State):
         # Wait for result
         self.feedback = None
         start_time = rospy.Time.now()
-        while rospy.Time.now() - start_time <= self.timeout and self.feedback is None:
+        while rospy.Time.now() - start_time <= self.timeout:
             rospy.sleep(0.1)
+            if self.feedback is not None:
+                if self.feedback.status == ManeuverNavFeedback.BUSY:
+                    continue
+                else:
+                    break
 
         if self.feedback is not None:
             if self.feedback.status == ManeuverNavFeedback.SUCCESS:
@@ -65,6 +70,8 @@ class GoToPreDockSetpoint(smach.State):
             if self.feedback.status == ManeuverNavFeedback.FAILURE_OBSTACLES:
                 set_dynamic_navigation_params('non_holonomic_mode')
                 return 'setpoint_unreachable'
+            else:
+                print("maneuver feedback ", self.feedback.status)
         set_dynamic_navigation_params('non_holonomic_mode')
         return 'timeout'
 
