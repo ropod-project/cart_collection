@@ -27,7 +27,7 @@
         <remap from="toggle_cart_publisher_srv" to="/cart_plane_detector/toggle_object_publisher" />
         <remap from="cmd_vel" to="/ropod/cmd_vel" />
         <remap from="cart_approach_pose" to="/cart_collection/cart_approach_pose" />
-        <param name="offset_to_approach_pose_m" type="double" value="0.42" />
+        <param name="offset_to_approach_pose_m" type="double" value="0.4" />
         <param name="backward_vel_docking_ms" type="double" value="0.11" />
         <param name="max_rot_vel_docking_rads" type="double" value="0.1" />
         <param name="approach_x_thresh_m" type="double" value="0.03" />
@@ -38,7 +38,7 @@
         <remap from="docking_cmd" to="/ropod/ropod_low_level_control/cmd_dock" />
         <remap from="docking_feedback" to="/ropod/ropod_low_level_control/dockingFeedback" />
         <remap from="set_load_attached" to="/route_navigation/set_load_attached" />
-        <param name="max_coupling_attempts" type="int" value="2" />
+        <param name="max_coupling_attempts" type="int" value="1" />
 
         <!-- get setpoint in post dock area state params-->
         <remap from="cart_post_dock_pose" to="/cart_collection/cart_post_dock_pose" />

@@ -21,8 +21,8 @@ class GetSetpointInPreUndockArea(smach.State):
                 map_frame_name='map'):
         smach.State.__init__(self,
                              outcomes=['setpoint_found', 'setpoint_unreachable', 'timeout'],
-                             input_keys=['cart_area', 'cart_sub_area'],
-                             output_keys=['pre_undock_setpoint'])
+                             input_keys=['cart_area', 'cart_sub_area', 'area_shape', 'sub_area_shape'],
+                             output_keys=['pre_undock_setpoint', 'area_shape', 'sub_area_shape'])
         self.timeout = rospy.Duration.from_sec(timeout)
         self.preundock_offset = preundock_offset_m
         self.map_frame_name = map_frame_name
@@ -59,6 +59,7 @@ class GetSetpointInPreUndockArea(smach.State):
             rospy.logerr("[cart_collector] Timed out waiting for shape of undocking sub area")
             return 'timeout'
         sub_area_shape_result = self.get_shape_client.get_result()
+        userdata.sub_area_shape = sub_area_shape_result.shape
 
         goal = GetShapeGoal()
         goal.id = int(userdata.cart_area)
@@ -69,6 +70,7 @@ class GetSetpointInPreUndockArea(smach.State):
             rospy.logerr("[cart_collector] Timed out waiting for shape of undocking area")
             return 'timeout'
         area_shape_result = self.get_shape_client.get_result()
+        userdata.area_shape = area_shape_result.shape
 
         # TODO: check that the pose is reachable
         #cart_pose = get_pose_perpendicular_to_wall(area_shape_result.shape, sub_area_shape_result.shape, self.preundock_offset)

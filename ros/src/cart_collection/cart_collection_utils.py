@@ -184,7 +184,7 @@ def is_pose_in_polygon(pose, polygon):
     '''
     point = ropod_ros_msgs.msg.Position()
     point.x = pose.pose.position.x
-    point.y = pose.pose.position.x
+    point.y = pose.pose.position.y
     return is_point_in_polygon(point, polygon)
 
 

@@ -1,11 +1,12 @@
 import smach
 import rospy
+import std_msgs.msg
 
 from geometry_msgs.msg import PoseStamped, PoseWithCovarianceStamped
 from maneuver_navigation.msg import Goal as ManeuverNavGoal
 from maneuver_navigation.msg import Feedback as ManeuverNavFeedback
 
-from cart_collection.cart_collection_utils import set_dynamic_navigation_params
+from cart_collection.cart_collection_utils import set_dynamic_navigation_params, is_pose_in_polygon
 
 class GoToPreUndockSetpoint(smach.State):
     '''
@@ -15,7 +16,7 @@ class GoToPreUndockSetpoint(smach.State):
         smach.State.__init__(self, outcomes=['reached_setpoint',
                                              'setpoint_unreachable',
                                              'timeout'],
-                             input_keys=['pre_undock_setpoint'])
+                             input_keys=['pre_undock_setpoint', 'cart_sub_area', 'area_shape', 'sub_area_shape'])
         self.timeout = rospy.Duration.from_sec(timeout)
         self.feedback = None
         self.robot_pose = None
@@ -25,6 +26,9 @@ class GoToPreUndockSetpoint(smach.State):
         self.nav_feedback_sub = rospy.Subscriber("nav_feedback",
                                                  ManeuverNavFeedback,
                                                  self.feedback_callback)
+        self.nav_cancel_pub = rospy.Publisher("nav_cancel",
+                                            std_msgs.msg.Bool,
+                                            queue_size=1)
         self.robot_pose_sub = rospy.Subscriber("localisation_pose",
                                                PoseWithCovarianceStamped,
                                                self.robot_pose_callback)
@@ -53,8 +57,24 @@ class GoToPreUndockSetpoint(smach.State):
         # Wait for result
         self.feedback = None
         start_time = rospy.Time.now()
-        while rospy.Time.now() - start_time <= self.timeout and self.feedback is None:
+        robot_inside_sub_area = False
+        while rospy.Time.now() - start_time <= self.timeout:
             rospy.sleep(0.1)
+            # only check if robot is inside subarea
+            if is_pose_in_polygon(self.robot_pose, userdata.sub_area_shape.vertices):
+                rospy.loginfo("Robot is within undock subarea; cancelling nav goal")
+                robot_inside_sub_area = True
+                self.nav_cancel_pub.publish(True)
+                break
+            if self.feedback is not None:
+                if self.feedback.status == ManeuverNavFeedback.BUSY:
+                    continue
+                else:
+                    break
+
+        if robot_inside_sub_area:
+            set_dynamic_navigation_params('normal_speed')
+            return 'reached_setpoint'
 
         if self.feedback is not None:
             if self.feedback.status == ManeuverNavFeedback.SUCCESS:

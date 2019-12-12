@@ -39,6 +39,8 @@ class CartDropOffSM(StateMachine):
         self.userdata.post_undock_setpoint = None
         self.userdata.cart_area = cart_area
         self.userdata.cart_sub_area = cart_sub_area
+        self.userdata.area_shape = None
+        self.userdata.sub_area_shape = None
         self.userdata.action_req = action_req
         self.userdata.action_server = action_server
 
@@ -67,7 +69,7 @@ class CartDropOffSM(StateMachine):
                                           'timeout': 'UNCOUPLE_FROM_CART'})
 
             StateMachine.add('UNCOUPLE_FROM_CART', UncoupleFromCart(),
-                             transitions={'uncoupling_succeeded': 'GET_SETPOINT_IN_POST_UNDOCK_AREA',
+                             transitions={'uncoupling_succeeded': 'done',
                                           'uncoupling_failed': 'failed',
                                           'cannot_switch_to_robot_mode': 'failed'})
 
