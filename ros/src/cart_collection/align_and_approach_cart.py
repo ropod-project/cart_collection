@@ -2,6 +2,7 @@ import math
 import smach
 import rospy
 
+from std_msgs.msg import String
 from geometry_msgs.msg import Twist, PoseStamped
 from ropod_ros_msgs.msg import ObjectList
 from ropod_ros_msgs.srv import ToggleObjectPublisher
@@ -38,6 +39,9 @@ class AlignAndApproachCart(smach.State):
         self.cart_approach_pose_pub = rospy.Publisher("cart_approach_pose",
                                                       PoseStamped,
                                                       queue_size=1)
+        self.reconfigure_controller_pub = rospy.Publisher("reconfigure_controller",
+                                                          String,
+                                                          queue_size=1)
         self.toggle_cart_publisher_client = rospy.ServiceProxy('toggle_cart_publisher_srv', ToggleObjectPublisher)
         self.offset_to_front = offset_to_approach_pose_m
         self.backward_vel_docking_ms = backward_vel_docking_ms
@@ -57,6 +61,9 @@ class AlignAndApproachCart(smach.State):
         if (not resp.success):
             return 'cart_pose_publisher_not_available'
 
+        # set the low-level controller to fine-grained mode
+        self.reconfigure_controller_pub.publish(String(data='fine_grained'))
+
         start_time = rospy.Time.now()
         while (rospy.Time.now() - start_time <= self.timeout) and not self.pose_reached:
             if self.cart_front_pose is not None:
@@ -68,6 +75,9 @@ class AlignAndApproachCart(smach.State):
             else:
                 rospy.logwarn("[cart_collector] Precondition for AlignAndApproachCart not met: No cart_front_pose received so far. Retrying.")
             rospy.sleep(0.1)
+
+        # set the low-level controller back to the default mode
+        self.reconfigure_controller_pub.publish(String(data='default'))
 
         if self.pose_reached:
             return 'approach_succeeded'
