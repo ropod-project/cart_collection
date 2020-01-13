@@ -7,7 +7,7 @@ from ropod_ros_msgs.msg import GetObjectsAction, GetObjectsGoal
 from ropod_ros_msgs.msg import GetShapeAction, GetShapeGoal
 from ropod_ros_msgs.msg import Status
 
-from cart_collection.cart_collection_utils import get_pose_perpendicular_to_edge, send_feedback
+from cart_collection.cart_collection_utils import get_pose_perpendicular_to_wall, send_feedback
 
 class GetCartPose(smach.State):
     '''
@@ -23,7 +23,7 @@ class GetCartPose(smach.State):
     def __init__(self, timeout=5.0,
                  map_frame_name='map'):
         smach.State.__init__(self, outcomes=['cart_found', 'cart_not_found', 'timeout'],
-                             input_keys=['cart_area', 'cart_sub_area', 'action_req', 'action_server', 'sub_area_shape'],
+                             input_keys=['cart_area', 'cart_sub_area', 'action_req', 'action_server', 'area_shape', 'sub_area_shape'],
                              output_keys=['cart_pose', 'action_server', 'area_shape', 'sub_area_shape'])
         self.get_objects_client = actionlib.SimpleActionClient("get_objects", GetObjectsAction)
         self.get_shape_client = actionlib.SimpleActionClient("get_shape", GetShapeAction)
@@ -85,7 +85,10 @@ class GetCartPose(smach.State):
         rospy.loginfo("[cart_collector] # of found objects = " + str(len(res.objects)))
 
 
-        cart_pose = get_pose_perpendicular_to_edge(userdata.sub_area_shape, res.objects[0].pose)
+        cart_pose = get_pose_perpendicular_to_wall(userdata.area_shape, userdata.sub_area_shape, 0.0)
+        cart_pose.pose.position.x = res.objects[0].pose.pose.position.x
+        cart_pose.pose.position.y = res.objects[0].pose.pose.position.y
+        cart_pose.header.frame_id = 'map'
         ## NOTE: we assume there is only one cart in the specified sub area
         self.cart_pose_pub.publish(cart_pose)
         userdata.cart_pose = cart_pose
