@@ -1,7 +1,7 @@
-import os
 import smach
 import rospy
 
+from std_msgs.msg import String, Bool
 from geometry_msgs.msg import PoseStamped, PoseWithCovarianceStamped
 from maneuver_navigation.msg import Goal as ManeuverNavGoal
 from maneuver_navigation.msg import Feedback as ManeuverNavFeedback
@@ -23,12 +23,18 @@ class GoToPreDockSetpoint(smach.State):
         self.nav_goal_pub = rospy.Publisher("nav_goal",
                                             ManeuverNavGoal,
                                             queue_size=1)
+        self.nav_cancel_pub = rospy.Publisher("nav_cancel",
+                                              Bool,
+                                              queue_size=1)
         self.nav_feedback_sub = rospy.Subscriber("nav_feedback",
                                                  ManeuverNavFeedback,
                                                  self.feedback_callback)
         self.robot_pose_sub = rospy.Subscriber("localisation_pose",
                                                PoseWithCovarianceStamped,
                                                self.robot_pose_callback)
+        self.reconfigure_controller_pub = rospy.Publisher("reconfigure_controller",
+                                                          String,
+                                                          queue_size=1)
 
     def execute(self, userdata):
         # Get ropot pose
@@ -40,8 +46,8 @@ class GoToPreDockSetpoint(smach.State):
             rospy.logerr("[cart_collector] Precondition for GoToPreDockSetpoint not met: Robot pose not available. Aborting.")
             return 'timeout'
 
-        # reconfigure to fine grained navigaiton
-        set_dynamic_navigation_params('omni_drive_mode')
+        # reconfigure to fine grained navigation and platform control
+        self.set_nav_and_platform_mode('fine_grained')
 
         # Send goal
         nav_goal = ManeuverNavGoal()
@@ -65,18 +71,28 @@ class GoToPreDockSetpoint(smach.State):
 
         if self.feedback is not None:
             if self.feedback.status == ManeuverNavFeedback.SUCCESS:
-                set_dynamic_navigation_params('non_holonomic_mode')
+                self.set_nav_and_platform_mode('default')
                 return 'reached_setpoint'
             if self.feedback.status == ManeuverNavFeedback.FAILURE_OBSTACLES:
-                set_dynamic_navigation_params('non_holonomic_mode')
+                self.set_nav_and_platform_mode('default')
                 return 'setpoint_unreachable'
             else:
                 print("maneuver feedback ", self.feedback.status)
-        set_dynamic_navigation_params('non_holonomic_mode')
+        self.set_nav_and_platform_mode('default')
+        self.nav_cancel_pub.publish(True)
         return 'timeout'
 
     def feedback_callback(self, msg):
         self.feedback = msg
+
+    def set_nav_and_platform_mode(self, mode):
+        if mode == 'default':
+            self.reconfigure_controller_pub.publish(String(data='default'))
+            set_dynamic_navigation_params('non_holonomic_mode')
+        elif mode == 'fine_grained':
+            self.reconfigure_controller_pub.publish(String(data='fine_grained'))
+            set_dynamic_navigation_params('omni_drive_mode')
+
 
     def robot_pose_callback(self, msg):
         if self.robot_pose is None:
