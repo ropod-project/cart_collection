@@ -330,9 +330,9 @@ def get_pose_perpendicular_to_wall(area_shape, sub_area_shape, offset_from_edge)
     yaw = np.arctan2((v1.x - v2.x), (v1.y - v2.y))
     q = quaternion_from_euler(0.0, 0.0, yaw)
     pose.pose.orientation.x = q[0]
-    pose.pose.orientation.x = q[1]
-    pose.pose.orientation.x = q[2]
-    pose.pose.orientation.x = q[3]
+    pose.pose.orientation.y = q[1]
+    pose.pose.orientation.z = q[2]
+    pose.pose.orientation.w = q[3]
 
     output_pose = get_pose_perpendicular_to_edge(sub_area_shape, pose)
     yaw = get_yaw_from_pose(output_pose)
