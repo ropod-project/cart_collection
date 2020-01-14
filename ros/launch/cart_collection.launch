@@ -29,11 +29,11 @@
         <remap from="cart_approach_pose" to="/cart_collection/cart_approach_pose" />
         <remap from="reconfigure_controller" to="/ropod_low_level_control/reconfigure" />
         <param name="offset_to_approach_pose_m" type="double" value="0.4" />
-        <param name="backward_vel_docking_ms" type="double" value="0.11" />
-        <param name="max_rot_vel_docking_rads" type="double" value="0.1" />
+        <param name="backward_vel_docking_ms" type="double" value="0.08" />
+        <param name="max_rot_vel_docking_rads" type="double" value="0.08" />
         <param name="approach_x_thresh_m" type="double" value="0.03" />
-        <param name="approach_y_thresh_m" type="double" value="0.04" />
-        <param name="approach_yaw_thresh_rad" type="double" value="0.1" />
+        <param name="approach_y_thresh_m" type="double" value="0.03" />
+        <param name="approach_yaw_thresh_rad" type="double" value="0.01" />
 
         <!-- couple to cart state params-->
         <remap from="docking_cmd" to="/ropod/ropod_low_level_control/cmd_dock" />
